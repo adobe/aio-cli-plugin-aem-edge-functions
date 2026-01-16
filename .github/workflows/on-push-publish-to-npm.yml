@@ -1,0 +1,27 @@
+name: on-push-publish-to-npm
+on:
+  push:
+    branches:
+      - 'main'
+    paths:
+      - 'package.json'
+jobs:
+  publish:
+    if: github.repository == 'adobe/aio-cli-plugin-aem-edge-functions'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+      - run: npm install
+      - run: npm test
+      # - name: Publish to NPM
+      #   uses: JS-DevTools/npm-publish@v3
+      #   id: publish
+      #   with:
+      #     token: ${{ secrets.ADOBE_BOT_NPM_TOKEN }}
+      #     access: public
+      # - name: Check if version changed
+      #   if: ${{ steps.publish.outputs.type }}
+      #   run: echo "Version changed!"
