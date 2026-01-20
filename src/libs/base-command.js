@@ -121,7 +121,7 @@ class BaseCommand extends Command {
 
     apiEndpoint +=
       process.env.AEM_COMPUTE_API_ENDPOINT_URL ??
-      '/adobe/experimental/compute-expires-20251231/cdn/compute/fastly';
+      '/adobe/experimental/compute-expires-20251231/cdn/edgeFunctions/fastly';
 
     const accessToken = process.env.AEM_COMPUTE_TOKEN ?? (await this.getTokenAndKey())?.accessToken;
 
