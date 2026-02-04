@@ -106,7 +106,7 @@ class BaseCommand extends Command {
   }
 
   async getFastlyCli() {
-    let apiEndpoint = process.env.AEM_COMPUTE_API_ENDPOINT;
+    let apiEndpoint = process.env.AEM_EDGE_FUNCTIONS_API_ENDPOINT;
 
     if (!apiEndpoint) {
       const isEdgeDelivery = Config.get(this.CONFIG_EDGE_DELIVERY);
@@ -120,10 +120,11 @@ class BaseCommand extends Command {
     }
 
     apiEndpoint +=
-      process.env.AEM_COMPUTE_API_ENDPOINT_URL ??
+      process.env.AEM_EDGE_FUNCTIONS_API_ENDPOINT_URL ??
       '/adobe/experimental/compute-expires-20251231/cdn/edgeFunctions/fastly';
 
-    const accessToken = process.env.AEM_COMPUTE_TOKEN ?? (await this.getTokenAndKey())?.accessToken;
+    const accessToken =
+      process.env.AEM_EDGE_FUNCTIONS_TOKEN ?? (await this.getTokenAndKey())?.accessToken;
 
     return new FastlyCli(accessToken, apiEndpoint);
   }
