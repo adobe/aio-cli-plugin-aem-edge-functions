@@ -15,11 +15,13 @@ const BuildCommand = require('./commands/aem/edge-functions/build');
 const DeployCommand = require('./commands/aem/edge-functions/deploy');
 const TailLogsCommand = require('./commands/aem/edge-functions/tail-logs');
 const ServeCommand = require('./commands/aem/edge-functions/serve');
+const InfoCommand = require('./commands/aem/edge-functions/info');
 
 module.exports = {
   setup: new SetupCommand().run,
   build: new BuildCommand().run,
   deploy: new DeployCommand().run,
   serve: new ServeCommand().run,
-  'tail-logs': new TailLogsCommand().run
+  'tail-logs': new TailLogsCommand().run,
+  info: new InfoCommand().run
 };

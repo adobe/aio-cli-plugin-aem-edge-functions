@@ -105,7 +105,11 @@ class BaseCommand extends Command {
     return !stage ? 'https://cloudmanager.adobe.io' : 'https://cloudmanager-stage.adobe.io';
   }
 
-  async getFastlyCli() {
+  /**
+   * Get the API endpoint for AEM Edge Functions
+   * @returns {string|null} The computed API endpoint or null if configuration is incomplete
+   */
+  getApiEndpoint() {
     let apiEndpoint = process.env.AEM_EDGE_FUNCTIONS_API_ENDPOINT;
 
     if (!apiEndpoint) {
@@ -113,6 +117,10 @@ class BaseCommand extends Command {
       const programId = Config.get(this.CONFIG_PROGRAM);
       const environmentId = Config.get(this.CONFIG_ENVIRONMENT);
       const environmentName = Config.get(this.CONFIG_ENVIRONMENT_NAME);
+
+      if (!programId || !environmentId) {
+        return null;
+      }
 
       apiEndpoint = isEdgeDelivery
         ? `https://${environmentName}`
@@ -123,6 +131,11 @@ class BaseCommand extends Command {
       process.env.AEM_EDGE_FUNCTIONS_API_ENDPOINT_URL ??
       '/adobe/experimental/compute-expires-20251231/cdn/edgeFunctions/fastly';
 
+    return apiEndpoint;
+  }
+
+  async getFastlyCli() {
+    const apiEndpoint = this.getApiEndpoint();
     const accessToken =
       process.env.AEM_EDGE_FUNCTIONS_TOKEN ?? (await this.getTokenAndKey())?.accessToken;
 

@@ -50,6 +50,38 @@ This command will prompt you to select the Cloud Manager organization, program a
 
 The deploy and tail-logs commands will use this configuration to identify the correct Cloud Manager environment to deploy to.
 
+## View Configuration
+
+You can view your current configuration at any time by running:
+
+```
+aio aem edge-functions info
+```
+
+This command displays:
+
+- Organization ID
+- Program ID and Name
+- Environment ID and Name
+- Edge Delivery site configuration status
+- Cloud Manager URL for quick access to your environment
+
+### Debug Mode
+
+For detailed debugging information, including API endpoint details and token verification, use the `--debug` flag:
+
+```
+aio aem edge-functions info --debug
+```
+
+In debug mode, the command will additionally:
+
+- Display the computed API endpoint
+- Show any environment variable overrides
+- Test API connectivity and validate your authentication token
+
+This is useful for troubleshooting authentication issues or verifying your setup before deploying.
+
 ## Build
 
 The following command will package your code for deployment to your edge function.
