@@ -11,7 +11,7 @@
  */
 
 const { Request } = require('./request');
-const { CliUx } = require('@oclif/core');
+const { ux } = require('@oclif/core');
 
 class Cloudmanager {
   /**
@@ -50,7 +50,7 @@ class Cloudmanager {
         name: program.name
       }));
     } else {
-      CliUx.ux.warn(`Failed to list programs: ${response.status} ${response.statusText}`);
+      ux.warn(`Failed to list programs: ${response.status} ${response.statusText}`);
       return null;
     }
   }
@@ -72,7 +72,7 @@ class Cloudmanager {
         status: env.status
       }));
     } else {
-      CliUx.ux.error('Failed to list environments');
+      ux.error('Failed to list environments');
       return null;
     }
   }
@@ -92,7 +92,7 @@ class Cloudmanager {
         name: site.domainName
       }));
     } else {
-      CliUx.ux.error('Failed to list sites');
+      ux.error('Failed to list sites');
       return null;
     }
   }
