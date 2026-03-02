@@ -46,9 +46,30 @@ You can set up your environment by running the following command:
 aio aem edge-functions setup
 ```
 
-This command will prompt you to select the Cloud Manager organization, program and environment you want to work with. The configuration may be stored locally in a `.aio` file in the current folder if selected, otherwise in the global aio configuration. This allows you to set up a config for each Edge Function project independently.
+This command will prompt you to:
+
+1. Select the Cloud Manager organization, program and environment you want to work with
+2. Optionally configure an Adobe Developer Console (ADC) project for API credentials
+
+The configuration may be stored locally in a `.aio` file in the current folder if selected, otherwise in the global aio configuration. This allows you to set up a config for each Edge Function project independently.
 
 The deploy and tail-logs commands will use this configuration to identify the correct Cloud Manager environment to deploy to.
+
+### Adobe Developer Console Integration
+
+During setup, you can optionally configure an Adobe Developer Console project and workspace. This allows you to:
+
+- Associate your edge functions with a specific ADC project
+- Use project-specific API credentials
+- Manage multiple environments with different ADC projects
+
+When prompted, you can:
+
+- Select an existing ADC project from your organization
+- Choose a workspace within that project
+- Skip ADC configuration if not needed
+
+The ADC project information will be stored alongside your Cloud Manager configuration for future reference.
 
 ## View Configuration
 

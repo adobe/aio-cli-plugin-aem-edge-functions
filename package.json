@@ -8,9 +8,10 @@
     "node": "^18 || ^20 || >= 22.15 <23"
   },
   "dependencies": {
+    "@adobe/aio-lib-console": "5.5.0",
     "@adobe/aio-lib-core-config": "^5.0.1",
     "@adobe/aio-lib-core-networking": "5.0.4",
-    "@adobe/aio-lib-ims": "^7.0.2",
+    "@adobe/aio-lib-ims": "8.1.1",
     "@fastly/cli": "^13.3.0",
     "@inquirer/prompts": "8.1.0",
     "@oclif/core": "2.16.0",

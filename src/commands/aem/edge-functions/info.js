@@ -36,6 +36,11 @@ class InfoCommand extends BaseCommand {
       const programName = Config.get(this.CONFIG_PROGRAM_NAME);
       const environmentName = Config.get(this.CONFIG_ENVIRONMENT_NAME);
       const edgeDelivery = Config.get(this.CONFIG_EDGE_DELIVERY);
+      const adcOrgId = Config.get(this.CONFIG_ADC_ORG);
+      const adcProjectId = Config.get(this.CONFIG_ADC_PROJECT);
+      const adcProjectName = Config.get(this.CONFIG_ADC_PROJECT_NAME);
+      const adcWorkspaceId = Config.get(this.CONFIG_ADC_WORKSPACE);
+      const adcWorkspaceName = Config.get(this.CONFIG_ADC_WORKSPACE_NAME);
 
       console.log(`Organization ID:        ${orgId ? chalk.green(orgId) : chalk.red('Not set')}`);
       console.log(
@@ -53,6 +58,34 @@ class InfoCommand extends BaseCommand {
       console.log(
         `Edge Delivery:          ${edgeDelivery !== undefined ? (edgeDelivery ? chalk.green('Yes') : chalk.yellow('No')) : chalk.red('Not set')}`
       );
+
+      // Display ADC configuration if available
+      if (adcProjectId || adcWorkspaceId) {
+        console.log(chalk.bold('\nAdobe Developer Console:'));
+
+        if (adcOrgId) {
+          console.log(`  ADC Org ID:           ${chalk.green(adcOrgId)}`);
+        }
+
+        console.log(
+          `  Project ID:           ${adcProjectId ? chalk.green(adcProjectId) : chalk.red('Not set')}`
+        );
+        console.log(
+          `  Project Name:         ${adcProjectName ? chalk.green(adcProjectName) : chalk.red('Not set')}`
+        );
+        console.log(
+          `  Workspace ID:         ${adcWorkspaceId ? chalk.green(adcWorkspaceId) : chalk.red('Not set')}`
+        );
+        console.log(
+          `  Workspace Name:       ${adcWorkspaceName ? chalk.green(adcWorkspaceName) : chalk.red('Not set')}`
+        );
+
+        // Display link to ADC project if we have the necessary IDs
+        if (adcOrgId && adcProjectId) {
+          const adcProjectUrl = `https://developer.adobe.com/console/projects/${adcOrgId}/${adcProjectId}/overview`;
+          console.log(`  Console URL:          ${chalk.cyan(adcProjectUrl)}`);
+        }
+      }
 
       // Display Cloud Manager URL
       if (orgId && programId) {
@@ -98,8 +131,28 @@ class InfoCommand extends BaseCommand {
           try {
             const { createFetch } = require('@adobe/aio-lib-core-networking');
             const fetch = createFetch();
-            const accessToken =
-              process.env.AEM_EDGE_FUNCTIONS_TOKEN ?? (await this.getTokenAndKey())?.accessToken;
+
+            // For edge function API requests, try to use ADC token if configured
+            let accessToken = process.env.AEM_EDGE_FUNCTIONS_TOKEN;
+
+            if (!accessToken) {
+              const adcConfigured = Config.get(this.CONFIG_ADC_CONFIGURED);
+
+              if (adcConfigured) {
+                try {
+                  const adcToken = await this.getAdcToken();
+                  if (adcToken) {
+                    accessToken = adcToken.accessToken;
+                  } else {
+                    accessToken = (await this.getTokenAndKey())?.accessToken;
+                  }
+                } catch (error) {
+                  accessToken = (await this.getTokenAndKey())?.accessToken;
+                }
+              } else {
+                accessToken = (await this.getTokenAndKey())?.accessToken;
+              }
+            }
 
             const response = await fetch(apiEndpoint, {
               method: 'HEAD',

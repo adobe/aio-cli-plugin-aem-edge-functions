@@ -17,8 +17,10 @@ const jwt = require('jsonwebtoken');
 const chalk = require('chalk');
 const { context, getToken } = require('@adobe/aio-lib-ims');
 const { Command } = require('@oclif/core');
+const { ux } = require('@oclif/core');
 const Config = require('@adobe/aio-lib-core-config');
 const FastlyCli = require('./fastly-cli');
+const { createFetch } = require('@adobe/aio-lib-core-networking');
 
 let spinner;
 
@@ -30,6 +32,15 @@ class BaseCommand extends Command {
   CONFIG_EDGE_DELIVERY_LEGACY = 'cloudmanager_edge_delivery';
   CONFIG_SITE_DOMAIN = 'edgefunctions_site_domain';
   CONFIG_SITE_DOMAIN_LEGACY = 'cloudmanager_environmentname';
+  CONFIG_ADC_CONFIGURED = 'adc_configured';
+  CONFIG_ADC_ORG = 'adc_orgid';
+  CONFIG_ADC_PROJECT = 'adc_projectid';
+  CONFIG_ADC_PROJECT_NAME = 'adc_projectname';
+  CONFIG_ADC_WORKSPACE = 'adc_workspaceid';
+  CONFIG_ADC_WORKSPACE_NAME = 'adc_workspacename';
+  CONFIG_ADC_CLIENT_ID = 'adc_client_id';
+  CONFIG_ADC_CLIENT_SECRET = 'adc_client_secret';
+  CONFIG_ADC_SCOPES = 'adc_scopes';
   LINK_ORGID =
     'https://experienceleague.adobe.com/en/docs/core-services/interface/administration/organizations#concept_EA8AEE5B02CF46ACBDAD6A8508646255';
 
@@ -47,8 +58,10 @@ class BaseCommand extends Command {
 
   /**
    * Get the IMS access token and API key from the configured context or the default one
+   * This is used for Cloud Manager and ADC API calls (always uses IMS token)
    */
   async getTokenAndKey() {
+    // Always use standard IMS token for Cloud Manager and ADC API calls
     let contextName =
       this.flags?.context || (await context.getCurrent()) || 'aio-cli-plugin-cloudmanager';
     let contextData = await context.get(contextName);
@@ -88,6 +101,79 @@ class BaseCommand extends Command {
       throw new Error(`No client_id found in access token for context: ${contextName}`);
     }
     return { accessToken, apiKey, local, data };
+  }
+
+  /**
+   * Get access token using ADC OAuth Server-to-Server credentials
+   * @returns {Promise<Object|null>} Token and API key or null
+   */
+  async getAdcToken() {
+    const adcProjectId = Config.get(this.CONFIG_ADC_PROJECT);
+    const adcWorkspaceId = Config.get(this.CONFIG_ADC_WORKSPACE);
+    const clientId = Config.get(this.CONFIG_ADC_CLIENT_ID);
+    const clientSecret = Config.get(this.CONFIG_ADC_CLIENT_SECRET) || process.env.ADC_CLIENT_SECRET;
+    const scopes = Config.get(this.CONFIG_ADC_SCOPES);
+
+    if (!adcProjectId || !adcWorkspaceId || !clientId) {
+      return null;
+    }
+
+    if (!clientSecret) {
+      ux.warn('Client secret not configured. Please run the setup command to configure it.');
+      return null;
+    }
+
+    // Exchange OAuth credentials for access token via IMS (no ADC API call needed)
+    const accessToken = await this.exchangeOAuthForToken(clientId, clientSecret, scopes);
+
+    if (!accessToken) {
+      return null;
+    }
+
+    return {
+      accessToken,
+      apiKey: clientId,
+      local: false,
+      data: { client_id: clientId }
+    };
+  }
+
+  /**
+   * Exchange OAuth credentials for an access token
+   * @param {string} clientId OAuth client ID
+   * @param {string} clientSecret OAuth client secret
+   * @param {Array} scopes OAuth scopes
+   * @returns {Promise<string|null>} Access token or null
+   */
+  async exchangeOAuthForToken(clientId, clientSecret, scopes) {
+    try {
+      const fetch = createFetch();
+      const scopeString = Array.isArray(scopes) ? scopes.join(',') : scopes || '';
+
+      const response = await fetch('https://ims-na1.adobelogin.com/ims/token/v3', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          grant_type: 'client_credentials',
+          client_id: clientId,
+          client_secret: clientSecret,
+          scope: scopeString
+        }).toString()
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to get access token: ${response.status} ${errorText}`);
+      }
+
+      const data = await response.json();
+      return data.access_token;
+    } catch (error) {
+      ux.warn(`Failed to exchange OAuth credentials: ${error.message}`);
+      return null;
+    }
   }
 
   spinnerStart(message) {
@@ -139,8 +225,31 @@ class BaseCommand extends Command {
 
   async getFastlyCli() {
     const apiEndpoint = this.getApiEndpoint();
-    const accessToken =
-      process.env.AEM_EDGE_FUNCTIONS_TOKEN ?? (await this.getTokenAndKey())?.accessToken;
+
+    // For edge function API requests, try to use ADC token if configured
+    let accessToken = process.env.AEM_EDGE_FUNCTIONS_TOKEN;
+
+    if (!accessToken) {
+      const adcConfigured = Config.get(this.CONFIG_ADC_CONFIGURED);
+
+      if (adcConfigured) {
+        try {
+          const adcToken = await this.getAdcToken();
+          if (adcToken) {
+            accessToken = adcToken.accessToken;
+          } else {
+            ux.warn('Failed to get ADC token, falling back to IMS token');
+            accessToken = (await this.getTokenAndKey())?.accessToken;
+          }
+        } catch (error) {
+          ux.warn(`Failed to get ADC token: ${error.message}, falling back to IMS token`);
+          accessToken = (await this.getTokenAndKey())?.accessToken;
+        }
+      } else {
+        // No ADC configured, use IMS token
+        accessToken = (await this.getTokenAndKey())?.accessToken;
+      }
+    }
 
     return new FastlyCli(accessToken, apiEndpoint);
   }
