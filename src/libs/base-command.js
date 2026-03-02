@@ -26,9 +26,10 @@ class BaseCommand extends Command {
   CONFIG_ORG = 'cloudmanager_orgid';
   CONFIG_PROGRAM = 'cloudmanager_programid';
   CONFIG_ENVIRONMENT = 'cloudmanager_environmentid';
-  CONFIG_PROGRAM_NAME = 'cloudmanager_programname';
-  CONFIG_ENVIRONMENT_NAME = 'cloudmanager_environmentname';
-  CONFIG_EDGE_DELIVERY = 'cloudmanager_edge_delivery';
+  CONFIG_EDGE_DELIVERY = 'edgefunctions_edge_delivery';
+  CONFIG_EDGE_DELIVERY_LEGACY = 'cloudmanager_edge_delivery';
+  CONFIG_SITE_DOMAIN = 'edgefunctions_site_domain';
+  CONFIG_SITE_DOMAIN_LEGACY = 'cloudmanager_environmentname';
   LINK_ORGID =
     'https://experienceleague.adobe.com/en/docs/core-services/interface/administration/organizations#concept_EA8AEE5B02CF46ACBDAD6A8508646255';
 
@@ -113,17 +114,19 @@ class BaseCommand extends Command {
     let apiEndpoint = process.env.AEM_EDGE_FUNCTIONS_API_ENDPOINT;
 
     if (!apiEndpoint) {
-      const isEdgeDelivery = Config.get(this.CONFIG_EDGE_DELIVERY);
+      const isEdgeDelivery =
+        Config.get(this.CONFIG_EDGE_DELIVERY) || Config.get(this.CONFIG_EDGE_DELIVERY_LEGACY);
       const programId = Config.get(this.CONFIG_PROGRAM);
       const environmentId = Config.get(this.CONFIG_ENVIRONMENT);
-      const environmentName = Config.get(this.CONFIG_ENVIRONMENT_NAME);
+      const siteDomain =
+        Config.get(this.CONFIG_SITE_DOMAIN) || Config.get(this.CONFIG_SITE_DOMAIN_LEGACY);
 
       if (!programId || !environmentId) {
         return null;
       }
 
       apiEndpoint = isEdgeDelivery
-        ? `https://${environmentName}`
+        ? `https://${siteDomain}`
         : `https://author-p${programId}-e${environmentId}.adobeaemcloud.com`;
     }
 

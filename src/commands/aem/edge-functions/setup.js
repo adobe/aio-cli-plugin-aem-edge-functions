@@ -35,7 +35,7 @@ class SetupCommand extends BaseCommand {
 
       const storeLocal = await confirm({
         message: 'Do you want to store the information you enter in this setup procedure locally?',
-        default: false
+        default: true
       });
 
       const orgId = await this.getOrgId();
@@ -49,19 +49,20 @@ class SetupCommand extends BaseCommand {
 
       let edgeDelivery = await confirm({
         message: 'Do you want to use an Edge Delivery site?',
-        default: Config.get(this.CONFIG_EDGE_DELIVERY)
+        default:
+          Config.get(this.CONFIG_EDGE_DELIVERY) || Config.get(this.CONFIG_EDGE_DELIVERY_LEGACY)
       });
 
       if (edgeDelivery) {
         selectedEnvironmentId = await this.getSiteId(selectedProgramId);
-        if (selectedEnvironmentId === null && this.programsCached?.length === 1) {
-          console.log(chalk.red('No Edge Delivery site found for the selected program.'));
+        if (selectedEnvironmentId === null) {
+          console.log(chalk.red('Setup cannot continue without site information.'));
           return;
         }
       } else {
         selectedEnvironmentId = await this.getEnvironmentId(selectedProgramId);
-        if (selectedEnvironmentId === null && this.programsCached?.length === 1) {
-          console.log(chalk.red('No program or environment found for the selected organization.'));
+        if (selectedEnvironmentId === null) {
+          console.log(chalk.red('Setup cannot continue without environment information.'));
           return;
         }
       }
@@ -78,10 +79,24 @@ class SetupCommand extends BaseCommand {
       );
 
       Config.set(this.CONFIG_PROGRAM, selectedProgramId, storeLocal);
+      if (storeLocal && Config.get('cloudmanager_programname')) {
+        Config.delete('cloudmanager_programname', storeLocal);
+      }
       Config.set(this.CONFIG_EDGE_DELIVERY, edgeDelivery, storeLocal);
-      Config.set(this.CONFIG_ENVIRONMENT, selectedEnvironmentId, storeLocal);
-      Config.set(this.CONFIG_PROGRAM_NAME, selectedProgramName, storeLocal);
-      Config.set(this.CONFIG_ENVIRONMENT_NAME, selectedEnvironmentName, storeLocal);
+
+      // For Edge Delivery, store the site domain separately
+      if (edgeDelivery) {
+        Config.set(this.CONFIG_SITE_DOMAIN, selectedEnvironmentName, storeLocal);
+        if (storeLocal && Config.get(this.CONFIG_ENVIRONMENT)) {
+          Config.delete(this.CONFIG_ENVIRONMENT, storeLocal);
+        }
+      } else {
+        Config.set(this.CONFIG_ENVIRONMENT, selectedEnvironmentId, storeLocal);
+      }
+
+      if (storeLocal && Config.get(this.CONFIG_SITE_DOMAIN_LEGACY)) {
+        Config.delete(this.CONFIG_SITE_DOMAIN_LEGACY, storeLocal);
+      }
 
       console.log(
         `Setup complete. Use 'aio help aem edge-functions' to see the available commands.`
@@ -174,14 +189,21 @@ class SetupCommand extends BaseCommand {
   async getProgramId() {
     if (!this.programsCached || this.programsCached?.length === 0) {
       this.spinnerStart('retrieving programs of your organization');
-      this.programsCached = await this.withCloudSdkBase((cloudSdkAPI) =>
-        cloudSdkAPI.listProgramsIdAndName()
-      );
+      try {
+        this.programsCached = await this.withCloudmanager((cloudmanager) =>
+          cloudmanager.listProgramsIdAndName()
+        );
+      } catch (err) {
+        this.spinnerStop();
+        console.log(chalk.yellow('Failed to retrieve programs from Cloud Manager API.'));
+        console.log(chalk.yellow('Error: ' + err.message));
+        return await this.fallbackToManualProgramInput();
+      }
       this.spinnerStop();
 
       if (!this.programsCached || this.programsCached.length === 0) {
-        console.log(chalk.red('No programs found for the selected organization.'));
-        return null;
+        console.log(chalk.yellow('No programs found for the selected organization.'));
+        return await this.fallbackToManualProgramInput();
       }
     }
 
@@ -210,7 +232,7 @@ class SetupCommand extends BaseCommand {
     return selectedProgram;
   }
 
-  async withCloudSdkBase(fn) {
+  async withCloudmanager(fn) {
     if (!this._cloudmanager) {
       const { accessToken, apiKey, data } = await this.getTokenAndKey();
       const cloudManagerUrl = this.getBaseUrl(data?.env === 'stage');
@@ -229,33 +251,36 @@ class SetupCommand extends BaseCommand {
 
   getEnvironmentFromConf() {
     const id = Config.get(this.CONFIG_ENVIRONMENT);
-    const name = Config.get(this.CONFIG_ENVIRONMENT_NAME);
-    return { prevEnvId: id, prevEnvName: name };
+    return { prevEnvId: id };
   }
 
   getProgramFromConf() {
     const id = Config.get(this.CONFIG_PROGRAM);
-    const name = Config.get(this.CONFIG_PROGRAM_NAME);
-    return { prevProgramId: id, prevProgramName: name };
+    return { prevProgramId: id };
   }
 
   getSiteFromConf() {
-    const id = Config.get(this.CONFIG_ENVIRONMENT);
-    const name = Config.get(this.CONFIG_ENVIRONMENT_NAME);
-    return { prevSiteId: id, prevSiteName: name };
+    const id = Config.get(this.CONFIG_SITE_DOMAIN) || Config.get(this.CONFIG_SITE_DOMAIN_LEGACY);
+    return { prevSiteId: id };
   }
 
   async getEnvironmentId(selectedProgram) {
     this.spinnerStart(`retrieving environments of program ${selectedProgram}`);
-    this.environmentsCached = await this.withCloudSdkBase((cloudmanager) =>
-      cloudmanager.listEnvironmentsIdAndName(selectedProgram)
-    );
+    try {
+      this.environmentsCached = await this.withCloudmanager((cloudmanager) =>
+        cloudmanager.listEnvironmentsIdAndName(selectedProgram)
+      );
+    } catch (err) {
+      this.spinnerStop();
+      console.log(chalk.yellow('Failed to retrieve environments from Cloud Manager API.'));
+      console.log(chalk.yellow('Error: ' + err.message));
+      return await this.fallbackToManualEnvironmentInput(selectedProgram);
+    }
     this.spinnerStop();
 
-    if (this.environmentsCached.length === 0) {
-      console.log(chalk.red(`No environments found for program ${selectedProgram}`));
-      console.log('==> Please choose a different program');
-      return null;
+    if (!this.environmentsCached || this.environmentsCached.length === 0) {
+      console.log(chalk.yellow(`No environments found for program ${selectedProgram}`));
+      return await this.fallbackToManualEnvironmentInput(selectedProgram);
     }
 
     if (this.environmentsCached.length === 1) {
@@ -286,15 +311,21 @@ class SetupCommand extends BaseCommand {
 
   async getSiteId(selectedProgram) {
     this.spinnerStart(`retrieving sites of program ${selectedProgram}`);
-    this.sitesCached = await this.withCloudSdkBase((cloudmanager) =>
-      cloudmanager.listSitesIdAndName(selectedProgram)
-    );
+    try {
+      this.sitesCached = await this.withCloudmanager((cloudmanager) =>
+        cloudmanager.listSitesIdAndName(selectedProgram)
+      );
+    } catch (err) {
+      this.spinnerStop();
+      console.log(chalk.yellow('Failed to retrieve sites from Cloud Manager API.'));
+      console.log(chalk.yellow('Error: ' + err.message));
+      return await this.fallbackToManualSiteInput(selectedProgram);
+    }
     this.spinnerStop();
 
-    if (this.sitesCached.length === 0) {
-      console.log(chalk.red(`No Edge Delivery sites found for program ${selectedProgram}`));
-      console.log('==> Please choose a different program');
-      return null;
+    if (!this.sitesCached || this.sitesCached.length === 0) {
+      console.log(chalk.yellow(`No Edge Delivery sites found for program ${selectedProgram}`));
+      return await this.fallbackToManualSiteInput(selectedProgram);
     }
 
     if (this.sitesCached.length === 1) {
@@ -323,6 +354,113 @@ class SetupCommand extends BaseCommand {
       }
     });
     return selectedSite;
+  }
+
+  async fallbackToManualProgramInput() {
+    console.log(chalk.yellow('Would you like to enter the program information manually?'));
+    const useManual = await confirm({
+      message: 'Enter program details manually?',
+      default: true
+    });
+
+    if (!useManual) {
+      console.log(chalk.red('Setup cannot continue without program information.'));
+      return null;
+    }
+
+    const programId = await input({
+      message: 'Enter Program ID:',
+      default: Config.get(this.CONFIG_PROGRAM),
+      validate: (value) => {
+        if (!value || value.trim() === '') {
+          return 'Program ID is required';
+        }
+        return true;
+      }
+    });
+
+    // Cache the manually entered program
+    this.programsCached = [
+      {
+        id: programId,
+        name: programId
+      }
+    ];
+
+    console.log(chalk.green(`Using manual program: ${programId}`));
+    return programId;
+  }
+
+  async fallbackToManualEnvironmentInput(selectedProgram) {
+    console.log(chalk.yellow('Would you like to enter the environment information manually?'));
+    const useManual = await confirm({
+      message: 'Enter environment details manually?',
+      default: true
+    });
+
+    if (!useManual) {
+      console.log(chalk.red('Setup cannot continue without environment information.'));
+      return null;
+    }
+
+    const environmentId = await input({
+      message: 'Enter Environment ID:',
+      default: Config.get(this.CONFIG_ENVIRONMENT),
+      validate: (value) => {
+        if (!value || value.trim() === '') {
+          return 'Environment ID is required';
+        }
+        return true;
+      }
+    });
+
+    // Cache the manually entered environment
+    this.environmentsCached = [
+      {
+        id: environmentId,
+        name: environmentId,
+        type: 'manual',
+        status: 'unknown'
+      }
+    ];
+
+    console.log(chalk.green(`Using manual environment: ${environmentId}`));
+    return environmentId;
+  }
+
+  async fallbackToManualSiteInput(selectedProgram) {
+    console.log(chalk.yellow('Would you like to enter the site information manually?'));
+    const useManual = await confirm({
+      message: 'Enter site details manually?',
+      default: true
+    });
+
+    if (!useManual) {
+      console.log(chalk.red('Setup cannot continue without site information.'));
+      return null;
+    }
+
+    const siteName = await input({
+      message: 'Enter Site/Domain Name (e.g., www.yourdomain.com):',
+      default: Config.get(this.CONFIG_SITE_DOMAIN) || 'www.yourdomain.com',
+      validate: (value) => {
+        if (!value || value.trim() === '') {
+          return 'Site/Domain name is required';
+        }
+        return true;
+      }
+    });
+
+    // Cache the manually entered site, using the domain name as both ID and name
+    this.sitesCached = [
+      {
+        id: siteName,
+        name: siteName
+      }
+    ];
+
+    console.log(chalk.green(`Using manual site: ${siteName}`));
+    return siteName;
   }
 }
 
