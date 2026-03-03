@@ -57,7 +57,7 @@ class DeveloperConsole {
         return this._adcOrgId;
       }
 
-      const organizations = response.body || [];
+      const organizations = response.body;
 
       // Find the organization that matches our orgId
       // The orgId from AIO is in format like "ABC123@AdobeOrg"
@@ -95,14 +95,7 @@ class DeveloperConsole {
         return [];
       }
 
-      // The response structure might vary, adjust based on actual API response
-      const projects = response.body || [];
-      return projects.map((project) => ({
-        id: project.id || project.projectId,
-        name: project.name || project.title,
-        title: project.title || project.name,
-        description: project.description || ''
-      }));
+      return response.body;
     } catch (error) {
       ux.warn(`Failed to list projects: ${error.message}`);
       return [];
@@ -148,12 +141,7 @@ class DeveloperConsole {
         return [];
       }
 
-      const workspaces = response.body || [];
-      return workspaces.map((workspace) => ({
-        id: workspace.id || workspace.workspaceId,
-        name: workspace.name || workspace.title,
-        description: workspace.description || ''
-      }));
+      return response.body;
     } catch (error) {
       ux.warn(`Failed to list workspaces: ${error.message}`);
       return [];
@@ -177,7 +165,7 @@ class DeveloperConsole {
         return [];
       }
 
-      return response.body || [];
+      return response.body;
     } catch (error) {
       ux.warn(`Failed to get credentials: ${error.message}`);
       return [];
