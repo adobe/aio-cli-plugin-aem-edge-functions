@@ -173,32 +173,75 @@ class DeveloperConsole {
   }
 
   /**
+   * Get scopes for an OAuth credential
+   * @param {string} integrationId the integration/credential id
+   * @returns {Promise<Array>} Array of scopes
+   */
+  async getCredentialScopes(integrationId) {
+    try {
+      const adcOrgId = await this._getAdcOrgId();
+      const integration = await this.getIntegration(adcOrgId, integrationId);
+
+      if (integration) {
+        // Extract scopes from serviceProperties
+        return integration.serviceProperties?.flatMap((sp) => sp.scopes || []) || [];
+      }
+      return [];
+    } catch (error) {
+      ux.warn(`Failed to get credential scopes: ${error.message}`);
+      return [];
+    }
+  }
+
+  /**
    * Get OAuth Server-to-Server credentials from workspace
    * @param {string} projectId the project id
    * @param {string} workspaceId the workspace id
-   * @returns {Promise<Object|null>} OAuth credentials metadata (without secret)
+   * @returns {Promise<Object|null>} OAuth credentials metadata (without secret, without scopes)
    */
-  async getOAuthCredentials(projectId, workspaceId) {
+  async getCredentials(projectId, workspaceId) {
     try {
-      const credentials = await this.getWorkspaceCredentials(projectId, workspaceId);
+      const workspaceCredentials = await this.getWorkspaceCredentials(projectId, workspaceId);
 
       // Find OAuth Server-to-Server credential
-      const oauthCred = credentials.find(
+      const credentials = workspaceCredentials.find(
         (cred) => cred.integration_type === 'oauth_server_to_server'
       );
 
-      if (!oauthCred) {
+      if (!credentials) {
         return null;
       }
 
       return {
-        clientId: oauthCred.client_id,
-        credentialId: oauthCred.id_integration,
-        scopes: oauthCred.scopes || [],
-        name: oauthCred.name
+        clientId: credentials.client_id,
+        credentialId: credentials.id_integration,
+        name: credentials.name
       };
     } catch (error) {
       ux.warn(`Failed to get OAuth credentials: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
+   * Get integration details
+   * @param {string} orgId the organization id
+   * @param {string} integrationId the integration id
+   * @returns {Promise<Object|null>} Integration details
+   */
+  async getIntegration(orgId, integrationId) {
+    try {
+      const client = await this._getClient();
+      const response = await client.getIntegration(orgId, integrationId);
+
+      if (!response || !response.body) {
+        ux.warn(`Failed to get integration ${integrationId}`);
+        return null;
+      }
+
+      return response.body;
+    } catch (error) {
+      ux.warn(`Failed to get integration: ${error.message}`);
       return null;
     }
   }

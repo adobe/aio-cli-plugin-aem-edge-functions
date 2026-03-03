@@ -32,17 +32,13 @@ class BaseCommand extends Command {
   CONFIG_EDGE_DELIVERY_LEGACY = 'cloudmanager_edge_delivery';
   CONFIG_SITE_DOMAIN = 'edgefunctions_site_domain';
   CONFIG_SITE_DOMAIN_LEGACY = 'cloudmanager_environmentname';
-  CONFIG_ADC_CONFIGURED = 'adc_configured';
-  CONFIG_ADC_ORG = 'adc_orgid';
-  CONFIG_ADC_PROJECT = 'adc_projectid';
-  CONFIG_ADC_PROJECT_NAME = 'adc_projectname';
-  CONFIG_ADC_WORKSPACE = 'adc_workspaceid';
-  CONFIG_ADC_WORKSPACE_NAME = 'adc_workspacename';
-  CONFIG_ADC_CLIENT_ID = 'adc_client_id';
-  CONFIG_ADC_CLIENT_SECRET = 'adc_client_secret';
-  CONFIG_ADC_SCOPES = 'adc_scopes';
-  LINK_ORGID =
-    'https://experienceleague.adobe.com/en/docs/core-services/interface/administration/organizations#concept_EA8AEE5B02CF46ACBDAD6A8508646255';
+  CONFIG_ADC_CONFIGURED = 'edgefunctions_adc_configured';
+  CONFIG_ADC_ORG = 'edgefunctions_adc_orgid';
+  CONFIG_ADC_PROJECT = 'edgefunctions_adc_projectid';
+  CONFIG_ADC_WORKSPACE = 'edgefunctions_adc_workspaceid';
+  CONFIG_ADC_CLIENT_ID = 'edgefunctions_adc_client_id';
+  CONFIG_ADC_CLIENT_SECRET = 'edgefunctions_adc_client_secret';
+  CONFIG_ADC_SCOPES = 'edgefunctions_adc_scopes';
 
   async init() {
     await super.init();
@@ -142,7 +138,7 @@ class BaseCommand extends Command {
    * Exchange OAuth credentials for an access token
    * @param {string} clientId OAuth client ID
    * @param {string} clientSecret OAuth client secret
-   * @param {Array} scopes OAuth scopes
+   * @param {Array|string} scopes OAuth scopes (array or comma-separated string)
    * @returns {Promise<string|null>} Access token or null
    */
   async exchangeOAuthForToken(clientId, clientSecret, scopes) {

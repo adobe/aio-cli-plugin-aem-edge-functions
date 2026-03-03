@@ -64,7 +64,8 @@ describe('DeveloperConsole', function () {
       getProjectsForOrg: sinon.stub(),
       getProject: sinon.stub(),
       getWorkspacesForProject: sinon.stub(),
-      getCredentials: sinon.stub()
+      getCredentials: sinon.stub(),
+      getIntegration: sinon.stub()
     };
 
     // Configure the stub to return the mock client
@@ -317,7 +318,7 @@ describe('DeveloperConsole', function () {
     });
   });
 
-  describe('#getOAuthCredentials', function () {
+  describe('#getCredentials', function () {
     it('should return null when no OAuth credentials found', async function () {
       mockConsoleClient.getOrganizations.resolves({
         body: [mockOrganization]
@@ -339,7 +340,7 @@ describe('DeveloperConsole', function () {
       });
 
       const devConsole = new DeveloperConsole(mockOrganization.code, 'apiKey123', 'token123');
-      const credentials = await devConsole.getOAuthCredentials('proj1', 'ws1');
+      const credentials = await devConsole.getCredentials('proj1', 'ws1');
 
       assert.strictEqual(credentials, null);
     });
@@ -361,26 +362,298 @@ describe('DeveloperConsole', function () {
             integration_type: 'oauth_server_to_server',
             integration_name: 'OAuth Server-to-Server Credential',
             integration_description: 'OAuth credential for testing',
-            name: 'OAuth Server-to-Server Credential',
-            scopes: [
-              'openid',
-              'AdobeID',
-              'read_organizations',
-              'additional_info.projectedProductContext'
-            ]
+            name: 'OAuth Server-to-Server Credential'
           }
         ]
       });
 
       const devConsole = new DeveloperConsole(mockOrganization.code, 'apiKey123', 'token123');
-      const credentials = await devConsole.getOAuthCredentials('proj1', 'ws1');
+      const credentials = await devConsole.getCredentials('proj1', 'ws1');
 
       assert.ok(credentials);
       assert.strictEqual(credentials.clientId, 'ccccddddeeeeffff9999000011112222');
       assert.strictEqual(credentials.credentialId, '777777');
       assert.strictEqual(credentials.name, 'OAuth Server-to-Server Credential');
-      assert.ok(Array.isArray(credentials.scopes));
-      assert.strictEqual(credentials.scopes.length, 4);
+    });
+  });
+
+  describe('#getIntegration', function () {
+    it('should return integration details on success', async function () {
+      const mockIntegration = {
+        id: '999999',
+        orgId: '123456',
+        orgCode: 'MOCK123456789ABCD@AdobeOrg',
+        apiKey: 'aaaabbbbccccdddd11112222333344445',
+        name: 'Test Credential in Project',
+        description: 'Test credential description',
+        status: 'ENABLED',
+        type: 'entp',
+        integrationType: 'oauth_server_to_server',
+        production: true,
+        createdDate: 1700000000000,
+        lastModifiedDate: 1700100000000,
+        lastTokenDate: 1700200000000,
+        readOnly: false,
+        technicalAccountId: 'MOCKTECH123456789@techacct.adobe.com',
+        technicalAccountEmail: 'mock-uuid-1234-5678@techacct.adobe.com',
+        serviceProperties: [
+          {
+            sdkCode: 'TEST-API',
+            name: 'Test API Service',
+            roles: [
+              {
+                id: 1001,
+                code: 'test.role.one',
+                name: 'Test Role One',
+                description: 'First test role'
+              },
+              {
+                id: 1002,
+                code: 'test.role.two',
+                name: 'Test Role Two',
+                description: 'Second test role'
+              },
+              {
+                id: 1003,
+                code: 'openid',
+                name: null,
+                description: 'Sign in a user'
+              }
+            ],
+            scopes: ['test.role.one', 'test.role.two', 'openid'],
+            licenseConfigs: [
+              {
+                id: '11111111',
+                name: 'Test License Config',
+                productId: 'TESTPROD123456',
+                description: 'Test product license'
+              }
+            ]
+          }
+        ],
+        sdkList: ['TEST-API']
+      };
+
+      mockConsoleClient.getIntegration = sinon.stub().resolves({
+        body: mockIntegration
+      });
+
+      const devConsole = new DeveloperConsole(mockOrganization.code, 'apiKey123', 'token123');
+      const integration = await devConsole.getIntegration(mockOrganization.id, '999999');
+
+      assert.ok(integration);
+      assert.strictEqual(integration.id, '999999');
+      assert.strictEqual(integration.integrationType, 'oauth_server_to_server');
+      assert.strictEqual(integration.name, 'Test Credential in Project');
+      assert.ok(Array.isArray(integration.serviceProperties));
+      assert.strictEqual(integration.serviceProperties.length, 1);
+      assert.ok(Array.isArray(integration.serviceProperties[0].scopes));
+      assert.strictEqual(integration.serviceProperties[0].scopes.length, 3);
+      assert.strictEqual(integration.serviceProperties[0].sdkCode, 'TEST-API');
+    });
+
+    it('should return null on API error', async function () {
+      mockConsoleClient.getIntegration = sinon.stub().rejects(new Error('API Error'));
+
+      const devConsole = new DeveloperConsole(mockOrganization.code, 'apiKey123', 'token123');
+      const integration = await devConsole.getIntegration(mockOrganization.id, '999999');
+
+      assert.strictEqual(integration, null);
+    });
+
+    it('should return null when response body is missing', async function () {
+      mockConsoleClient.getIntegration = sinon.stub().resolves({
+        body: null
+      });
+
+      const devConsole = new DeveloperConsole(mockOrganization.code, 'apiKey123', 'token123');
+      const integration = await devConsole.getIntegration(mockOrganization.id, '999999');
+
+      assert.strictEqual(integration, null);
+    });
+  });
+
+  describe('#getCredentialScopes', function () {
+    it('should return scopes from integration service properties', async function () {
+      const mockIntegration = {
+        id: '888888',
+        orgId: '123456',
+        orgCode: 'MOCK123456789ABCD@AdobeOrg',
+        apiKey: 'testapikeyaabbccdd11223344',
+        name: 'Test OAuth Credential',
+        integrationType: 'oauth_server_to_server',
+        serviceProperties: [
+          {
+            sdkCode: 'TEST-SERVICE-1',
+            name: 'Test Service One',
+            scopes: ['scope.one', 'scope.two', 'openid']
+          },
+          {
+            sdkCode: 'TEST-SERVICE-2',
+            name: 'Test Service Two',
+            scopes: ['scope.three', 'scope.four']
+          }
+        ]
+      };
+
+      mockConsoleClient.getOrganizations.resolves({
+        body: [mockOrganization]
+      });
+      mockConsoleClient.getIntegration = sinon.stub().resolves({
+        body: mockIntegration
+      });
+
+      const devConsole = new DeveloperConsole(mockOrganization.code, 'apiKey123', 'token123');
+      const scopes = await devConsole.getCredentialScopes('888888');
+
+      assert.ok(Array.isArray(scopes));
+      assert.strictEqual(scopes.length, 5);
+      assert.ok(scopes.includes('scope.one'));
+      assert.ok(scopes.includes('scope.two'));
+      assert.ok(scopes.includes('scope.three'));
+      assert.ok(scopes.includes('scope.four'));
+      assert.ok(scopes.includes('openid'));
+    });
+
+    it('should return empty array when integration has no service properties', async function () {
+      const mockIntegration = {
+        id: '888888',
+        orgId: '123456',
+        integrationType: 'oauth_server_to_server',
+        serviceProperties: []
+      };
+
+      mockConsoleClient.getOrganizations.resolves({
+        body: [mockOrganization]
+      });
+      mockConsoleClient.getIntegration = sinon.stub().resolves({
+        body: mockIntegration
+      });
+
+      const devConsole = new DeveloperConsole(mockOrganization.code, 'apiKey123', 'token123');
+      const scopes = await devConsole.getCredentialScopes('888888');
+
+      assert.ok(Array.isArray(scopes));
+      assert.strictEqual(scopes.length, 0);
+    });
+
+    it('should return empty array when integration has service properties without scopes', async function () {
+      const mockIntegration = {
+        id: '888888',
+        orgId: '123456',
+        integrationType: 'oauth_server_to_server',
+        serviceProperties: [
+          {
+            sdkCode: 'TEST-SERVICE',
+            name: 'Test Service'
+            // No scopes property
+          }
+        ]
+      };
+
+      mockConsoleClient.getOrganizations.resolves({
+        body: [mockOrganization]
+      });
+      mockConsoleClient.getIntegration = sinon.stub().resolves({
+        body: mockIntegration
+      });
+
+      const devConsole = new DeveloperConsole(mockOrganization.code, 'apiKey123', 'token123');
+      const scopes = await devConsole.getCredentialScopes('888888');
+
+      assert.ok(Array.isArray(scopes));
+      assert.strictEqual(scopes.length, 0);
+    });
+
+    it('should return empty array when getIntegration returns null', async function () {
+      mockConsoleClient.getOrganizations.resolves({
+        body: [mockOrganization]
+      });
+      mockConsoleClient.getIntegration = sinon.stub().resolves({
+        body: null
+      });
+
+      const devConsole = new DeveloperConsole(mockOrganization.code, 'apiKey123', 'token123');
+      const scopes = await devConsole.getCredentialScopes('888888');
+
+      assert.ok(Array.isArray(scopes));
+      assert.strictEqual(scopes.length, 0);
+    });
+
+    it('should return empty array on API error from getIntegration', async function () {
+      mockConsoleClient.getOrganizations.resolves({
+        body: [mockOrganization]
+      });
+      mockConsoleClient.getIntegration = sinon.stub().rejects(new Error('API Error'));
+
+      const devConsole = new DeveloperConsole(mockOrganization.code, 'apiKey123', 'token123');
+      const scopes = await devConsole.getCredentialScopes('888888');
+
+      assert.ok(Array.isArray(scopes));
+      assert.strictEqual(scopes.length, 0);
+    });
+
+    it('should return empty array on error from _getAdcOrgId', async function () {
+      mockConsoleClient.getOrganizations.rejects(new Error('Organization lookup failed'));
+
+      const devConsole = new DeveloperConsole(mockOrganization.code, 'apiKey123', 'token123');
+      const scopes = await devConsole.getCredentialScopes('888888');
+
+      assert.ok(Array.isArray(scopes));
+      assert.strictEqual(scopes.length, 0);
+    });
+
+    it('should return empty array when getIntegration throws during scopes extraction', async function () {
+      const mockIntegration = {
+        id: '888888',
+        orgId: '123456',
+        integrationType: 'oauth_server_to_server',
+        serviceProperties: [
+          {
+            sdkCode: 'TEST-SERVICE',
+            name: 'Test Service',
+            // Mock a property that will cause an error when accessed
+            get scopes() {
+              throw new Error('Error accessing scopes');
+            }
+          }
+        ]
+      };
+
+      mockConsoleClient.getOrganizations.resolves({
+        body: [mockOrganization]
+      });
+      mockConsoleClient.getIntegration = sinon.stub().resolves({
+        body: mockIntegration
+      });
+
+      const devConsole = new DeveloperConsole(mockOrganization.code, 'apiKey123', 'token123');
+      const scopes = await devConsole.getCredentialScopes('888888');
+
+      assert.ok(Array.isArray(scopes));
+      assert.strictEqual(scopes.length, 0);
+    });
+
+    it('should handle integration with undefined serviceProperties', async function () {
+      const mockIntegration = {
+        id: '888888',
+        orgId: '123456',
+        integrationType: 'oauth_server_to_server'
+        // serviceProperties is undefined
+      };
+
+      mockConsoleClient.getOrganizations.resolves({
+        body: [mockOrganization]
+      });
+      mockConsoleClient.getIntegration = sinon.stub().resolves({
+        body: mockIntegration
+      });
+
+      const devConsole = new DeveloperConsole(mockOrganization.code, 'apiKey123', 'token123');
+      const scopes = await devConsole.getCredentialScopes('888888');
+
+      assert.ok(Array.isArray(scopes));
+      assert.strictEqual(scopes.length, 0);
     });
   });
 
@@ -581,13 +854,13 @@ describe('DeveloperConsole', function () {
     });
   });
 
-  describe('#getOAuthCredentials - edge cases', function () {
+  describe('#getCredentials - edge cases', function () {
     it('should return null on error', async function () {
       mockConsoleClient.getOrganizations.rejects(new Error('API Error'));
       mockConsoleClient.getCredentials.rejects(new Error('API Error'));
 
       const devConsole = new DeveloperConsole('org123@AdobeOrg', 'apiKey123', 'token123');
-      const credentials = await devConsole.getOAuthCredentials('proj1', 'ws1');
+      const credentials = await devConsole.getCredentials('proj1', 'ws1');
 
       assert.strictEqual(credentials, null);
     });
@@ -599,37 +872,9 @@ describe('DeveloperConsole', function () {
       mockConsoleClient.getCredentials.resolves({ body: [] });
 
       const devConsole = new DeveloperConsole(mockOrganization.code, 'apiKey123', 'token123');
-      const credentials = await devConsole.getOAuthCredentials('proj1', 'ws1');
+      const credentials = await devConsole.getCredentials('proj1', 'ws1');
 
       assert.strictEqual(credentials, null);
-    });
-
-    it('should handle OAuth credentials with missing scopes', async function () {
-      mockConsoleClient.getOrganizations.resolves({
-        body: [mockOrganization]
-      });
-      mockConsoleClient.getCredentials.resolves({
-        body: [
-          {
-            client_id: 'ddddeeeeffffaaaa3333444455556666',
-            flow_type: 'entp',
-            date_created: '2025-10-01T08:00:00.000Z',
-            date_last_modified: '2025-10-01T08:00:00.000Z',
-            id_workspace: '4444444444444444444',
-            id_integration: '999999',
-            integration_type: 'oauth_server_to_server',
-            integration_name: 'OAuth Cred Without Scopes',
-            integration_description: 'Testing missing scopes',
-            name: 'OAuth Cred Without Scopes'
-          }
-        ]
-      });
-
-      const devConsole = new DeveloperConsole(mockOrganization.code, 'apiKey123', 'token123');
-      const credentials = await devConsole.getOAuthCredentials('proj1', 'ws1');
-
-      assert.ok(credentials);
-      assert.deepStrictEqual(credentials.scopes, []);
     });
 
     it('should handle multiple credentials and return the OAuth one', async function () {
@@ -678,7 +923,7 @@ describe('DeveloperConsole', function () {
       });
 
       const devConsole = new DeveloperConsole(mockOrganization.code, 'apiKey123', 'token123');
-      const credentials = await devConsole.getOAuthCredentials('proj1', 'ws1');
+      const credentials = await devConsole.getCredentials('proj1', 'ws1');
 
       assert.ok(credentials);
       assert.strictEqual(credentials.clientId, 'ffffaaaa22223333444455556666bbbb');
@@ -706,7 +951,7 @@ describe('DeveloperConsole', function () {
       });
 
       const devConsole = new DeveloperConsole(mockOrganization.code, 'apiKey123', 'token123');
-      const credentials = await devConsole.getOAuthCredentials('proj1', 'ws1');
+      const credentials = await devConsole.getCredentials('proj1', 'ws1');
 
       // Should handle the error gracefully and return null
       assert.strictEqual(credentials, null);

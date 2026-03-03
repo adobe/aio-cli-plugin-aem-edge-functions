@@ -57,8 +57,7 @@ class SetupCommand extends BaseCommand {
 
       let edgeDelivery = await confirm({
         message: 'Do you want to use an Edge Delivery site?',
-        default:
-          Config.get(this.CONFIG_EDGE_DELIVERY) || Config.get(this.CONFIG_EDGE_DELIVERY_LEGACY)
+        default: Config.get(this.CONFIG_EDGE_DELIVERY)
       });
 
       if (edgeDelivery) {
@@ -137,18 +136,37 @@ class SetupCommand extends BaseCommand {
               ? await this._developerConsole._getAdcOrgId()
               : null;
 
-            // Configure client secret
-            await this.configureClientSecret(selectedProjectId, selectedWorkspaceId, storeLocal);
-
+            // Save ADC configuration first
             if (adcOrgId) {
               Config.set(this.CONFIG_ADC_ORG, adcOrgId, storeLocal);
             }
 
             Config.set(this.CONFIG_ADC_CONFIGURED, true, storeLocal);
             Config.set(this.CONFIG_ADC_PROJECT, selectedProjectId, storeLocal);
-            Config.set(this.CONFIG_ADC_PROJECT_NAME, selectedProjectTitle, storeLocal);
             Config.set(this.CONFIG_ADC_WORKSPACE, selectedWorkspaceId, storeLocal);
-            Config.set(this.CONFIG_ADC_WORKSPACE_NAME, selectedWorkspaceName, storeLocal);
+
+            // Get OAuth credentials and scopes
+            const credentials = await this.getCredentialsAndScopes(
+              selectedProjectId,
+              selectedWorkspaceId,
+              storeLocal
+            );
+
+            if (credentials) {
+              // Configure client secret
+              await this.configureClientSecret(
+                selectedProjectId,
+                selectedWorkspaceId,
+                credentials.credentialId,
+                storeLocal
+              );
+            } else {
+              console.log(
+                chalk.yellow(
+                  'ADC configuration saved, but credentials could not be retrieved. You can run setup again to configure the client secret.'
+                )
+              );
+            }
           }
         }
       } else {
@@ -165,9 +183,7 @@ class SetupCommand extends BaseCommand {
             Config.delete(this.CONFIG_ADC_CONFIGURED, storeLocal);
             Config.delete(this.CONFIG_ADC_ORG, storeLocal);
             Config.delete(this.CONFIG_ADC_PROJECT, storeLocal);
-            Config.delete(this.CONFIG_ADC_PROJECT_NAME, storeLocal);
             Config.delete(this.CONFIG_ADC_WORKSPACE, storeLocal);
-            Config.delete(this.CONFIG_ADC_WORKSPACE_NAME, storeLocal);
             Config.delete(this.CONFIG_ADC_CLIENT_ID, storeLocal);
             Config.delete(this.CONFIG_ADC_CLIENT_SECRET, storeLocal);
             Config.delete(this.CONFIG_ADC_SCOPES, storeLocal);
@@ -331,7 +347,7 @@ class SetupCommand extends BaseCommand {
   }
 
   getCliOrgId() {
-    return Config.get('cloudmanager_orgid') || Config.get('console.org.code');
+    return Config.get(this.CONFIG_ORG) || Config.get('console.org.code');
   }
 
   getEnvironmentFromConf() {
@@ -642,7 +658,41 @@ class SetupCommand extends BaseCommand {
     return selectedWorkspace;
   }
 
-  async configureClientSecret(projectId, workspaceId, storeLocal) {
+  async getCredentialsAndScopes(projectId, workspaceId, storeLocal) {
+    try {
+      // Get OAuth credentials
+      const credentials = await this.withDeveloperConsole((devConsole) =>
+        devConsole.getCredentials(projectId, workspaceId)
+      );
+
+      if (!credentials || !credentials.clientId || !credentials.credentialId) {
+        console.log(
+          chalk.yellow('No OAuth Server-to-Server credential found in the selected workspace.')
+        );
+        console.log(
+          chalk.yellow('Please add an OAuth Server-to-Server credential to your workspace first.')
+        );
+        return null;
+      }
+
+      // Get scopes separately
+      const scopes = await this.withDeveloperConsole((devConsole) =>
+        devConsole.getCredentialScopes(credentials.credentialId)
+      );
+
+      // Save client ID and scopes for later use (no ADC API call needed at runtime)
+      Config.set(this.CONFIG_ADC_CLIENT_ID, credentials.clientId, storeLocal);
+      // Store scopes as comma-separated list
+      Config.set(this.CONFIG_ADC_SCOPES, (scopes || []).join(','), storeLocal);
+
+      return credentials;
+    } catch (error) {
+      console.log(chalk.yellow(`Failed to retrieve OAuth credentials: ${error.message}`));
+      return null;
+    }
+  }
+
+  async configureClientSecret(projectId, workspaceId, credentialId, storeLocal) {
     try {
       // Check if client secret already exists
       const existingSecret =
@@ -660,28 +710,9 @@ class SetupCommand extends BaseCommand {
         }
       }
 
-      // Get OAuth credentials to retrieve the credential URL
-      const oauthCreds = await this.withDeveloperConsole((devConsole) =>
-        devConsole.getOAuthCredentials(projectId, workspaceId)
-      );
-
-      if (!oauthCreds || !oauthCreds.clientId || !oauthCreds.credentialId) {
-        console.log(
-          chalk.yellow('No OAuth Server-to-Server credential found in the selected workspace.')
-        );
-        console.log(
-          chalk.yellow('Please add an OAuth Server-to-Server credential to your workspace first.')
-        );
-        return;
-      }
-
-      // Save client ID and scopes for later use (no ADC API call needed at runtime)
-      Config.set(this.CONFIG_ADC_CLIENT_ID, oauthCreds.clientId, storeLocal);
-      Config.set(this.CONFIG_ADC_SCOPES, oauthCreds.scopes, storeLocal);
-
       // Get credential URL
       const credentialUrl = await this.withDeveloperConsole((devConsole) =>
-        devConsole.getCredentialUrl(projectId, oauthCreds.credentialId)
+        devConsole.getCredentialUrl(projectId, credentialId)
       );
 
       console.log(chalk.yellow('\nClient secret is required for API authentication.'));
