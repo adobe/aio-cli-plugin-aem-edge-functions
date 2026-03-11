@@ -129,6 +129,12 @@ The following command will run your edge function code locally and exposed a ser
 aio aem edge-functions serve
 ```
 
+To automatically rebuild when files change, use the `--watch` flag:
+
+```
+aio aem edge-functions serve --watch
+```
+
 You can learn more about what is supported by Local runtime on [Fastly documentation](https://www.fastly.com/documentation/reference/cli/compute/serve/).
 
 ## Remote debugging
