@@ -14,13 +14,20 @@
 
 const BaseCommand = require('../../../libs/base-command');
 const FastlyCli = require('../../../libs/fastly-cli');
+const { Flags } = require('@oclif/core');
 
 class ServeCommand extends BaseCommand {
   static description = 'Serve your edge function locally.';
+  static flags = {
+    watch: Flags.boolean({
+      description: 'Watch for file changes and rebuild automatically',
+      default: false
+    })
+  };
 
   async run() {
     const fastly = new FastlyCli();
-    await fastly.serve();
+    await fastly.serve({ watch: this.flags.watch });
   }
 }
 

@@ -66,8 +66,12 @@ class FastlyCli {
     await this.run(['compute', 'deploy', '--service-id', serviceId]);
   }
 
-  async serve() {
-    await this.run(['compute', 'serve']);
+  async serve({ watch = false } = {}) {
+    const args = ['compute', 'serve'];
+    if (watch) {
+      args.push('--watch');
+    }
+    await this.run(args);
   }
 
   async logTail(serviceId) {
