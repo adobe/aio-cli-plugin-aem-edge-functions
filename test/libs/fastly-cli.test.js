@@ -17,7 +17,7 @@ describe('FastlyCli', function () {
   describe('#ensureServiceIdIsSafe', function () {
     it('should not throw an error if the service id is safe', function () {
       const fastlyCli = new FastlyCli();
-      fastlyCli.ensureServiceIdIsSafe('edgefunction-pXXXXX-eYYYYY-my-service');
+      fastlyCli.ensureServiceIdIsSafe('first-function');
       assert.ok(true);
     });
 
