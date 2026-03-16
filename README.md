@@ -93,16 +93,16 @@ The same two JSON formats are supported. All ADC values read from this variable 
 
 Without a config file or `AEM_EDGE_FUNCTIONS_ADC_CONFIG`, the setup command will interactively guide you through selecting an ADC project and workspace from your organization. You can also override individual values via environment variables:
 
-| Environment Variable | Description |
-|---|---|
-| `AEM_EDGE_FUNCTIONS_ORG_ID` | Cloud Manager organization ID |
-| `AEM_EDGE_FUNCTIONS_PROGRAM_ID` | Cloud Manager program ID |
-| `AEM_EDGE_FUNCTIONS_ENVIRONMENT_ID` | Cloud Manager environment ID |
-| `AEM_EDGE_FUNCTIONS_EDGE_DELIVERY` | Use Edge Delivery site (`true`/`false`) |
-| `AEM_EDGE_FUNCTIONS_SITE_DOMAIN` | Edge Delivery site domain |
-| `AEM_EDGE_FUNCTIONS_ADC_CLIENT_ID` | ADC OAuth client ID |
-| `AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET` | ADC OAuth client secret |
-| `AEM_EDGE_FUNCTIONS_ADC_SCOPES` | ADC OAuth scopes (comma-separated) |
+| Environment Variable                   | Description                             |
+| -------------------------------------- | --------------------------------------- |
+| `AEM_EDGE_FUNCTIONS_ORG_ID`            | Cloud Manager organization ID           |
+| `AEM_EDGE_FUNCTIONS_PROGRAM_ID`        | Cloud Manager program ID                |
+| `AEM_EDGE_FUNCTIONS_ENVIRONMENT_ID`    | Cloud Manager environment ID            |
+| `AEM_EDGE_FUNCTIONS_EDGE_DELIVERY`     | Use Edge Delivery site (`true`/`false`) |
+| `AEM_EDGE_FUNCTIONS_SITE_DOMAIN`       | Edge Delivery site domain               |
+| `AEM_EDGE_FUNCTIONS_ADC_CLIENT_ID`     | ADC OAuth client ID                     |
+| `AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET` | ADC OAuth client secret                 |
+| `AEM_EDGE_FUNCTIONS_ADC_SCOPES`        | ADC OAuth scopes (comma-separated)      |
 
 ### Client Secret Storage
 
