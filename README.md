@@ -144,6 +144,16 @@ In debug mode, the command additionally displays:
 - Edge Functions API endpoint
 - API connectivity test with token type and HTTP status
 
+### Batch Mode
+
+To display configuration without triggering a login prompt, use the `--batch` / `-b` flag:
+
+```
+aio aem edge-functions info --batch
+```
+
+In batch mode, any step that requires an interactive login is skipped. This is useful in CI/CD pipelines or scripted environments where interactive login is not possible. Cloud Manager program/environment names and ADC project/workspace names will not be shown. API connectivity is still tested if a token is available via environment variable or ADC OAuth credentials.
+
 ## Build
 
 The following command will package your code for deployment to your edge function.
@@ -184,4 +194,98 @@ The following command will tail your edge function logs to help you debug your a
 
 ```
 aio aem edge-functions tail-logs first-function
+```
+
+## CI/CD Setup
+
+In a CI/CD pipeline you can avoid any interactive prompts by supplying all required values as environment variables and using the `--batch` / `-b` flag where applicable.
+
+### 1. Store secrets in your CI/CD provider
+
+Add the following as secret/masked environment variables in your pipeline configuration (GitHub Actions, GitLab CI, Jenkins, etc.):
+
+| Variable                               | Where to find it                                      |
+| -------------------------------------- | ----------------------------------------------------- |
+| `AEM_EDGE_FUNCTIONS_PROGRAM_ID`        | Cloud Manager program ID                              |
+| `AEM_EDGE_FUNCTIONS_ENVIRONMENT_ID`    | Cloud Manager environment ID                          |
+| `AEM_EDGE_FUNCTIONS_ADC_CLIENT_ID`     | ADC project credential page                           |
+| `AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET` | ADC project credential page                           |
+| `AEM_EDGE_FUNCTIONS_ADC_SCOPES`        | ADC project credential page (comma-separated)         |
+
+Alternatively, download the credentials JSON from Adobe Developer Console and expose it as:
+
+```
+AEM_EDGE_FUNCTIONS_ADC_CONFIG='{ ... }'
+```
+
+### 2. Verify configuration without login (optional)
+
+Optionally use the info command to output the configuration, use `--batch` to no trigger an interactive login:
+
+```
+aio aem edge-functions info --batch
+```
+
+### 3. Build and deploy
+
+```
+aio aem edge-functions build
+aio aem edge-functions deploy <function-name>
+```
+
+### GitHub Actions example (AEM as a Cloud Service)
+
+```yaml
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AEM_EDGE_FUNCTIONS_PROGRAM_ID: ${{ secrets.AEM_EDGE_FUNCTIONS_PROGRAM_ID }}
+      AEM_EDGE_FUNCTIONS_ENVIRONMENT_ID: ${{ secrets.AEM_EDGE_FUNCTIONS_ENVIRONMENT_ID }}
+      AEM_EDGE_FUNCTIONS_ADC_CLIENT_ID: ${{ secrets.AEM_EDGE_FUNCTIONS_ADC_CLIENT_ID }}
+      AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET: ${{ secrets.AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET }}
+      AEM_EDGE_FUNCTIONS_ADC_SCOPES: ${{ secrets.AEM_EDGE_FUNCTIONS_ADC_SCOPES }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install aio CLI and plugin
+        run: |
+          npm install -g @adobe/aio-cli
+          aio plugins:install @adobe/aio-cli-plugin-aem-edge-functions
+
+      - name: Build
+        run: aio aem edge-functions build
+
+      - name: Deploy
+        run: aio aem edge-functions deploy my-function
+```
+
+### GitHub Actions example (Edge Delivery Site)
+
+For an Edge Delivery Site with Adobe Managed CDN, add `AEM_EDGE_FUNCTIONS_EDGE_DELIVERY` and `AEM_EDGE_FUNCTIONS_SITE_DOMAIN` to the environment:
+
+```yaml
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AEM_EDGE_FUNCTIONS_PROGRAM_ID: ${{ secrets.AEM_EDGE_FUNCTIONS_PROGRAM_ID }}
+      AEM_EDGE_FUNCTIONS_EDGE_DELIVERY: true
+      AEM_EDGE_FUNCTIONS_SITE_DOMAIN: ${{ secrets.AEM_EDGE_FUNCTIONS_SITE_DOMAIN }}
+      AEM_EDGE_FUNCTIONS_ADC_CLIENT_ID: ${{ secrets.AEM_EDGE_FUNCTIONS_ADC_CLIENT_ID }}
+      AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET: ${{ secrets.AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET }}
+      AEM_EDGE_FUNCTIONS_ADC_SCOPES: ${{ secrets.AEM_EDGE_FUNCTIONS_ADC_SCOPES }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install aio CLI and plugin
+        run: |
+          npm install -g @adobe/aio-cli
+          aio plugins:install @adobe/aio-cli-plugin-aem-edge-functions
+
+      - name: Build
+        run: aio aem edge-functions build
+
+      - name: Deploy
+        run: aio aem edge-functions deploy my-function
 ```

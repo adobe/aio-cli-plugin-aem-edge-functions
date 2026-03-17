@@ -22,7 +22,13 @@ class InfoCommand extends BaseCommand {
   static description = 'Display current AEM Edge Functions configuration.';
   static flags = {
     debug: Flags.boolean({
+      char: 'd',
       description: 'Show detailed API endpoint information',
+      default: false
+    }),
+    batch: Flags.boolean({
+      char: 'b',
+      description: 'Skip steps that require login or manual intervention',
       default: false
     })
   };
@@ -51,7 +57,7 @@ class InfoCommand extends BaseCommand {
       let adcError = null;
 
       // Fetch Cloud Manager data if we have orgId and programId
-      if (orgId && programId) {
+      if (orgId && programId && !this.flags.batch) {
         this.spinnerStart('Loading Cloud Manager program and environment names...');
         try {
           const { accessToken, apiKey, data } = await this.getTokenAndKey();
@@ -91,7 +97,7 @@ class InfoCommand extends BaseCommand {
       }
 
       // Fetch ADC data if we have adcOrgId and adcProjectId
-      if (adcOrgId && adcProjectId) {
+      if (adcOrgId && adcProjectId && !this.flags.batch) {
         this.spinnerStart('Loading Adobe Developer Console project and workspace names...');
         try {
           const { accessToken, apiKey } = await this.getTokenAndKey();
@@ -121,7 +127,9 @@ class InfoCommand extends BaseCommand {
         }
       }
 
-      console.log(`Organization ID:        ${orgId ? chalk.green(orgId) : chalk.red('Not set')}`);
+      if (orgId) {
+        console.log(`Organization ID:        ${chalk.green(orgId)}`);
+      }
       console.log(
         `Program ID:             ${programId ? chalk.green(programId) : chalk.red('Not set')}`
       );
@@ -213,21 +221,10 @@ class InfoCommand extends BaseCommand {
 
       // Display computed API endpoint only when debug flag is set
       if (this.flags.debug) {
-        const apiEndpoint = this.getApiEndpoint();
+        const apiEndpoint = this.getApiBasePath() ? this.getApiBasePath() : null;
         const adcClientId = this.getConfig(this.CONFIG_ADC_CLIENT_ID);
         const adcClientSecret = this.getConfig(this.CONFIG_ADC_CLIENT_SECRET);
         const adcScopes = this.getConfig(this.CONFIG_ADC_SCOPES);
-
-        console.log(chalk.bold('\nADC Credentials:'));
-        console.log(
-          `  Client ID:            ${adcClientId ? chalk.green(adcClientId) : chalk.red('Not set')}`
-        );
-        console.log(
-          `  Client Secret:        ${adcClientSecret ? chalk.green('Set') : chalk.red('Not set')}`
-        );
-        console.log(
-          `  Scopes:               ${adcScopes ? chalk.green(adcScopes) : chalk.red('Not set')}`
-        );
 
         console.log(chalk.bold('\nActive Environment Variables:'));
         const envVars = [
@@ -262,6 +259,19 @@ class InfoCommand extends BaseCommand {
         console.log(
           `\nAPI Endpoint:           ${apiEndpoint ? chalk.cyan(apiEndpoint) : chalk.red('Not available (missing configuration)')}`
         );
+
+        if (this.getConfig(this.CONFIG_ADC_CONFIGURED)) {
+          console.log(chalk.bold('\nADC Credentials:'));
+          console.log(
+            `  Client ID:            ${adcClientId ? chalk.green(adcClientId) : chalk.red('Not set')}`
+          );
+          console.log(
+            `  Client Secret:        ${adcClientSecret ? chalk.green('Set') : chalk.red('Not set')}`
+          );
+          console.log(
+            `  Scopes:               ${adcScopes ? chalk.green(adcScopes) : chalk.red('Not set')}`
+          );
+        }
 
         // Test API connectivity and token validity
         if (apiEndpoint) {
@@ -299,49 +309,85 @@ class InfoCommand extends BaseCommand {
                   console.log(chalk.red(`  ${error.message}`));
                   return;
                 }
-              } else {
+              } else if (!this.flags.batch) {
                 accessToken = (await this.getTokenAndKey())?.accessToken;
                 tokenType = 'IMS';
               }
             }
 
-            const response = await fetch(apiEndpoint, {
-              method: 'HEAD',
-              headers: { Authorization: `Bearer ${accessToken}` }
-            });
+            if (accessToken) {
+              const response = await fetch(apiEndpoint, {
+                method: 'GET',
+                headers: { Authorization: `Bearer ${accessToken}` }
+              });
 
-            if (response.ok || response.status === 404) {
-              console.log(
-                `API Status:             ${chalk.green('✓ Connected')} (HTTP ${response.status})`
-              );
-              console.log(`Token Type:             ${chalk.cyan(tokenType)}`);
-            } else if (response.status === 401 || response.status === 403) {
-              console.log(
-                `API Status:             ${chalk.red('✗ Authentication failed')} (HTTP ${response.status})`
-              );
-              console.log(`Token Type:             ${chalk.cyan(tokenType)}`);
+              if (response.ok) {
+                console.log(
+                  `API Status:             ${chalk.green('✓ Connected')} (HTTP ${response.status})`
+                );
+                console.log(`Token Type:             ${chalk.cyan(tokenType)}`);
+
+                let body;
+                try {
+                  body = await response.json();
+                } catch {
+                  body = null;
+                }
+
+                if (body) {
+                  const isEdgeDelivery =
+                    this.getConfig(this.CONFIG_EDGE_DELIVERY) ||
+                    this.getConfig(this.CONFIG_EDGE_DELIVERY_LEGACY);
+                  const expectedKind = isEdgeDelivery ? 'adobemanagedcdn' : 'aemcs';
+
+                  const programMatch = String(body.programId) === String(programId);
+                  const envMatch =
+                    !environmentId || String(body.environmentId) === String(environmentId);
+                  const kindMatch = !body.bucketType || body.bucketType === expectedKind;
+
+                  console.log(
+                    `  Program ID:           ${programMatch ? chalk.green(`✓ ${body.programId}`) : chalk.red(`✗ ${body.programId} (expected ${programId})`)}`
+                  );
+                  if (body.environmentId !== undefined) {
+                    console.log(
+                      `  Environment ID:       ${envMatch ? chalk.green(`✓ ${body.environmentId}`) : chalk.red(`✗ ${body.environmentId} (expected ${environmentId})`)}`
+                    );
+                  }
+                  if (body.bucketType !== undefined) {
+                    console.log(
+                      `  Environment Kind:     ${kindMatch ? chalk.green(`✓ ${body.bucketType}`) : chalk.yellow(`⚠ ${body.bucketType} (expected ${expectedKind})`)}`
+                    );
+                  }
+                }
+              } else if (response.status === 401 || response.status === 403) {
+                console.log(
+                  `API Status:             ${chalk.red('✗ Authentication failed')} (HTTP ${response.status})`
+                );
+                console.log(`Token Type:             ${chalk.cyan(tokenType)}`);
+              } else if (response.status === 404) {
+                console.log(
+                  `API Status:             ${chalk.red('✗ Endpoint not found')} (HTTP 404)`
+                );
+                console.log(`Token Type:             ${chalk.cyan(tokenType)}`);
+                console.log(
+                  chalk.yellow(
+                    '  The API endpoint was not found. Check your program/environment configuration.'
+                  )
+                );
+              } else {
+                console.log(
+                  `API Status:             ${chalk.yellow('⚠ Unexpected response')} (HTTP ${response.status})`
+                );
+                console.log(`Token Type:             ${chalk.cyan(tokenType)}`);
+              }
             } else {
-              console.log(
-                `API Status:             ${chalk.yellow('⚠ Unexpected response')} (HTTP ${response.status})`
-              );
-              console.log(`Token Type:             ${chalk.cyan(tokenType)}`);
+              console.log(`API Status:             ${chalk.red('✗ No access token available')}`);
             }
           } catch (error) {
             console.log(`API Status:             ${chalk.red('✗ Connection failed')}`);
             console.log(chalk.red(`Error: ${error.message}`));
           }
         }
-      }
-
-      const hasRequiredConfig = orgId && programId && environmentId;
-      if (!hasRequiredConfig) {
-        console.log(
-          chalk.yellow(
-            "\nWarning: Configuration is incomplete. Run 'aio aem edge-functions setup' to configure."
-          )
-        );
-      } else {
-        console.log(chalk.green('\nConfiguration is complete and ready to use.'));
       }
     } catch (err) {
       this.spinnerStop();

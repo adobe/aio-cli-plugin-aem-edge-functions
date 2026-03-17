@@ -319,35 +319,39 @@ class BaseCommand extends Command {
   }
 
   /**
+   * Get the API base path for AEM Edge Functions (without the edge functions path suffix)
+   * @returns {string|null} The computed base URL or null if configuration is incomplete
+   */
+  getApiBasePath() {
+    if (process.env.AEM_EDGE_FUNCTIONS_API_ENDPOINT) {
+      return process.env.AEM_EDGE_FUNCTIONS_API_ENDPOINT;
+    }
+
+    const isEdgeDelivery =
+      this.getConfig(this.CONFIG_EDGE_DELIVERY) || this.getConfig(this.CONFIG_EDGE_DELIVERY_LEGACY);
+    const programId = this.getConfig(this.CONFIG_PROGRAM);
+    const environmentId = this.getConfig(this.CONFIG_ENVIRONMENT);
+    const siteDomain =
+      this.getConfig(this.CONFIG_SITE_DOMAIN) || this.getConfig(this.CONFIG_SITE_DOMAIN_LEGACY);
+
+    if (!programId || (isEdgeDelivery && !siteDomain) || (!isEdgeDelivery && !environmentId)) {
+      return null;
+    }
+
+    return isEdgeDelivery
+      ? `https://${siteDomain}/adobe/experimental/compute-expires-20251231/cdn`
+      : `https://author-p${programId}-e${environmentId}.adobeaemcloud.com/adobe/experimental/compute-expires-20251231/cdn`;
+  }
+
+  /**
    * Get the API endpoint for AEM Edge Functions
    * @returns {string|null} The computed API endpoint or null if configuration is incomplete
    */
   getApiEndpoint() {
-    let apiEndpoint = process.env.AEM_EDGE_FUNCTIONS_API_ENDPOINT;
+    const basePath = this.getApiBasePath();
+    if (!basePath) return null;
 
-    if (!apiEndpoint) {
-      const isEdgeDelivery =
-        this.getConfig(this.CONFIG_EDGE_DELIVERY) ||
-        this.getConfig(this.CONFIG_EDGE_DELIVERY_LEGACY);
-      const programId = this.getConfig(this.CONFIG_PROGRAM);
-      const environmentId = this.getConfig(this.CONFIG_ENVIRONMENT);
-      const siteDomain =
-        this.getConfig(this.CONFIG_SITE_DOMAIN) || this.getConfig(this.CONFIG_SITE_DOMAIN_LEGACY);
-
-      if (!programId || (isEdgeDelivery && !siteDomain) || (!isEdgeDelivery && !environmentId)) {
-        return null;
-      }
-
-      apiEndpoint = isEdgeDelivery
-        ? `https://${siteDomain}`
-        : `https://author-p${programId}-e${environmentId}.adobeaemcloud.com`;
-    }
-
-    apiEndpoint +=
-      process.env.AEM_EDGE_FUNCTIONS_API_ENDPOINT_URL ??
-      '/adobe/experimental/compute-expires-20251231/cdn/edgeFunctions/fastly';
-
-    return apiEndpoint;
+    return basePath + (process.env.AEM_EDGE_FUNCTIONS_API_ENDPOINT_URL ?? '/edgeFunctions/fastly');
   }
 
   async getFastlyCli() {
