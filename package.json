@@ -1,7 +1,7 @@
 {
   "name": "@adobe/aio-cli-plugin-aem-edge-functions",
   "description": "Adobe I/O CLI plugin for interacting with AEM Edge Functions",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "author": "Adobe Inc.",
   "engines": {
     "npm": ">= 8.0.0",
@@ -33,12 +33,12 @@
     "sinon": "21.0.3"
   },
   "bin": {
-    "adobe-aem-edge-functions-cli": "./bin/run"
+    "adobe-aem-edge-functions-cli": "bin/run"
   },
   "main": "src/index.js",
   "repository": {
     "type": "git",
-    "url": "https://github.com/adobe/aio-cli-plugin-aem-edge-functions.git"
+    "url": "git+https://github.com/adobe/aio-cli-plugin-aem-edge-functions.git"
   },
   "scripts": {
     "test": "nyc --all --exclude 'eslint_rules/*' --exclude 'coverage/*' --exclude 'src/index.js' --exclude 'test/*' --reporter=text --reporter=html mocha 'test/**/*.test.js'",
