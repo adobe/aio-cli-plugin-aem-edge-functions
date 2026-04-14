@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.6.2] - 2026-04-14
+
+### Added
+
+- Timestamp displayed in `info --debug` command
+
+## [0.6.1] - 2026-04-07
+
+### Added
+
+- Included node 24.x support
+
 ## [0.6.0] - 2026-04-07
 
 ### Added
