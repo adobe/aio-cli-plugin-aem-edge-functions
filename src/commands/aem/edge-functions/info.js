@@ -221,6 +221,8 @@ class InfoCommand extends BaseCommand {
 
       // Display computed API endpoint only when debug flag is set
       if (this.flags.debug) {
+        console.log(`\nTimestamp (UTC):         ${chalk.cyan(new Date().toISOString())}`);
+
         const apiEndpoint = this.getApiBasePath() ? this.getApiBasePath() : null;
         const adcClientId = this.getConfig(this.CONFIG_ADC_CLIENT_ID);
         const adcClientSecret = this.getConfig(this.CONFIG_ADC_CLIENT_SECRET);
