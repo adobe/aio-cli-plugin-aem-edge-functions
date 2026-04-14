@@ -10,17 +10,19 @@ jobs:
     if: github.repository == 'adobe/aio-cli-plugin-aem-edge-functions'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
+      issues: write
+      pull-requests: write
       id-token: write
     steps:
       - uses: actions/checkout@v3
       - uses: actions/setup-node@v3
         with:
-          node-version: 20
+          node-version: 24
       - run: npm install
       - run: npm test
       - name: Publish to NPM
-        uses: JS-DevTools/npm-publish@v3
+        uses: JS-DevTools/npm-publish@v4
         id: publish
         with:
           token: ${{ secrets.ADOBE_BOT_NPM_TOKEN }}
