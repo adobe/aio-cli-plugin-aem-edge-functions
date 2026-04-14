@@ -5,26 +5,28 @@ on:
       - 'main'
     paths:
       - 'package.json'
+
+permissions:
+  contents: read
+  id-token: write
+
 jobs:
   publish:
     if: github.repository == 'adobe/aio-cli-plugin-aem-edge-functions'
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
       - run: npm ci
       - run: npm test
       - name: Publish to NPM
         uses: JS-DevTools/npm-publish@v4.1.5
         id: publish
         with:
-          token: ${{ secrets.ADOBE_BOT_NPM_TOKEN }}
-          access: public
+          provenance: true
       - name: Check if version changed
         if: ${{ steps.publish.outputs.type }}
         run: echo "Version changed!"
