@@ -22,11 +22,21 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
       - run: npm ci
       - run: npm test
+      - name: Verify npm token
+        run: |
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::error::ADOBE_BOT_NPM_TOKEN secret is empty or not set"
+            exit 1
+          fi
+          npm whoami
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.ADOBE_BOT_NPM_TOKEN }}
       - name: Publish to NPM
         uses: JS-DevTools/npm-publish@v4.1.5
         id: publish
         with:
           provenance: true
+          token: ${{ secrets.ADOBE_BOT_NPM_TOKEN }}
       - name: Check if version changed
         if: ${{ steps.publish.outputs.type }}
         run: echo "Version changed!"
