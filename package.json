@@ -14,7 +14,7 @@
     "@adobe/aio-lib-ims": "8.1.1",
     "@fastly/cli": "14.3.1",
     "@inquirer/prompts": "8.3.0",
-    "@oclif/core": "2.16.0",
+    "@oclif/core": "4.11.11",
     "chalk": "4.1.2",
     "jsonwebtoken": "9.0.3",
     "open": "10.2.0",
