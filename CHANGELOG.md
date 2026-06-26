@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.1] - 2026-06-26
+
+### Changed
+
+- `setup` command now prompts to re-configure ADC project/workspace when an existing ADC configuration is detected, instead of jumping straight to updating the client secret
+- Fixed ADC credential URL to include the workspace ID in the path, so the link works correctly for non-production workspaces
+
 ## [0.11.0] - 2026-06-24
 
 ### Added
