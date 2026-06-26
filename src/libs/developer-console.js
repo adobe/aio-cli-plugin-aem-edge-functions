@@ -252,9 +252,9 @@ class DeveloperConsole {
    * @param {string} credentialId the credential id
    * @returns {Promise<string>} URL to the OAuth Server-to-Server credential
    */
-  async getCredentialUrl(projectId, credentialId) {
+  async getCredentialUrl(projectId, workspaceId, credentialId) {
     const adcOrgId = await this._getAdcOrgId();
-    return `https://developer.adobe.com/console/projects/${adcOrgId}/${projectId}/credentials/${credentialId}/details/oauthservertoserver`;
+    return `https://developer.adobe.com/console/projects/${adcOrgId}/${projectId}/workspaces/${workspaceId}/credentials/${credentialId}/details/oauthservertoserver`;
   }
 }
 

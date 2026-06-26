@@ -664,11 +664,11 @@ describe('DeveloperConsole', function () {
       });
 
       const devConsole = new DeveloperConsole(mockOrganization.code, 'apiKey123', 'token123');
-      const url = await devConsole.getCredentialUrl('proj1', 'cred1');
+      const url = await devConsole.getCredentialUrl('proj1', 'ws1', 'cred1');
 
       assert.strictEqual(
         url,
-        `https://developer.adobe.com/console/projects/${mockOrganization.id}/proj1/credentials/cred1/details/oauthservertoserver`
+        `https://developer.adobe.com/console/projects/${mockOrganization.id}/proj1/workspaces/ws1/credentials/cred1/details/oauthservertoserver`
       );
     });
 
@@ -676,11 +676,11 @@ describe('DeveloperConsole', function () {
       mockConsoleClient.getOrganizations.rejects(new Error('API Error'));
 
       const devConsole = new DeveloperConsole('org123@AdobeOrg', 'apiKey123', 'token123');
-      const url = await devConsole.getCredentialUrl('proj1', 'cred1');
+      const url = await devConsole.getCredentialUrl('proj1', 'ws1', 'cred1');
 
       assert.strictEqual(
         url,
-        'https://developer.adobe.com/console/projects/org123@AdobeOrg/proj1/credentials/cred1/details/oauthservertoserver'
+        'https://developer.adobe.com/console/projects/org123@AdobeOrg/proj1/workspaces/ws1/credentials/cred1/details/oauthservertoserver'
       );
     });
   });
