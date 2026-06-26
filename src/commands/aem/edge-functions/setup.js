@@ -191,11 +191,24 @@ class SetupCommand extends BaseCommand {
 
         if (useADC) {
           const existingClientId = this.getConfig(this.CONFIG_ADC_CLIENT_ID);
+          let doFullConfig = !existingClientId;
+
           if (existingClientId) {
-            // Credentials already configured — only prompt for client secret
-            console.log(chalk.green(`Using existing ADC client ID: ${existingClientId}`));
-            await this.configureClientSecret(null, null, null, storeLocal);
-          } else {
+            console.log(chalk.green(`Existing ADC client ID: ${existingClientId}`));
+            const reconfigure = await confirm({
+              message:
+                'An ADC configuration already exists. Do you want to re-configure it (select a different project/workspace)?',
+              default: false
+            });
+
+            if (reconfigure) {
+              doFullConfig = true;
+            } else {
+              await this.configureClientSecret(null, null, null, storeLocal);
+            }
+          }
+
+          if (doFullConfig) {
             const selectedProjectId = await this.getADCProjectId();
             if (selectedProjectId) {
               const selectedWorkspaceId = await this.getADCWorkspaceId(selectedProjectId);
@@ -214,12 +227,10 @@ class SetupCommand extends BaseCommand {
                   )
                 );
 
-                // Get and save the ADC org ID
                 const adcOrgId = this._developerConsole
                   ? await this._developerConsole._getAdcOrgId()
                   : null;
 
-                // Save ADC configuration first
                 if (adcOrgId) {
                   Config.set(this.CONFIG_ADC_ORG, adcOrgId, storeLocal);
                 }
@@ -228,7 +239,6 @@ class SetupCommand extends BaseCommand {
                 Config.set(this.CONFIG_ADC_PROJECT, selectedProjectId, storeLocal);
                 Config.set(this.CONFIG_ADC_WORKSPACE, selectedWorkspaceId, storeLocal);
 
-                // Get OAuth credentials and scopes
                 const credentials = await this.getCredentialsAndScopes(
                   selectedProjectId,
                   selectedWorkspaceId,
@@ -236,7 +246,6 @@ class SetupCommand extends BaseCommand {
                 );
 
                 if (credentials) {
-                  // Configure client secret
                   await this.configureClientSecret(
                     selectedProjectId,
                     selectedWorkspaceId,
@@ -252,7 +261,7 @@ class SetupCommand extends BaseCommand {
                 }
               }
             }
-          } // end: no existingClientId
+          }
         } else {
           // Check if ADC configuration exists
           const hasAdcConfig = this.getConfig(this.CONFIG_ADC_CONFIGURED);
@@ -806,7 +815,7 @@ class SetupCommand extends BaseCommand {
         // Get credential URL
         this.spinnerStart('retrieving credential URL from Adobe Developer Console');
         const credentialUrl = await this.withDeveloperConsole((devConsole) =>
-          devConsole.getCredentialUrl(projectId, credentialId)
+          devConsole.getCredentialUrl(projectId, workspaceId, credentialId)
         );
         this.spinnerStop();
 
