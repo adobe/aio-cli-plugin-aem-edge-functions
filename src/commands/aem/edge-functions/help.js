@@ -68,12 +68,6 @@ class HelpCommand extends BaseCommand {
     console.log(chalk.dim('     Stream live logs from a deployed edge function'));
     console.log(cmd$('aio aem edge-functions tail-logs my-function'));
 
-    console.log(`\n`);
-    section('GLOBAL FLAGS');
-    console.log(
-      `  ${chalk.cyan('--accept-beta'.padEnd(nameWidth))}${chalk.dim('Acknowledge the public beta notice non-interactively (for CI/CD)')}`
-    );
-
     console.log('');
   }
 }

@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.0] - 2026-08-27
+
+### Removed
+
+- Public beta notice and interactive acknowledgement on every command — AEM Edge Functions is now generally available.
+
+### Deprecated
+
+- `--accept-beta` no longer has any effect (kept as a no-op for compatibility; will be removed later).
+
 ## [0.11.1] - 2026-06-26
 
 ### Changed
