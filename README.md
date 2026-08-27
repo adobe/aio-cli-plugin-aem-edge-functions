@@ -298,6 +298,14 @@ To see the API endpoint used for log tailing (useful for troubleshooting connect
 aio aem edge-functions tail-logs first-function --debug
 ```
 
+### Timestamps
+
+To prefix each log line with an RFC3339 UTC timestamp, use the `--timestamps` / `-t` flag. The timestamp comes from the log record metadata, so it applies to every line — both the logs your function emits and any lines emitted by the platform:
+
+```
+aio aem edge-functions tail-logs first-function --timestamps
+```
+
 ## Purge cache
 
 The `purge-cache` command purges the **Edge Function's internal cache** — it clears cached origin responses from `fetch()` calls and any data stored via the Core Cache API within your Edge Function. It does **not** purge the outer AEM CDN cache (for that, use the [CDN Cache Purge API](https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/implementing/content-delivery/cdn-cache-purge)).

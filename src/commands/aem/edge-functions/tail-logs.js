@@ -28,12 +28,20 @@ class TailLogsCommand extends BaseCommand {
       char: 'd',
       description: 'Show debug information including API endpoint',
       default: false
+    }),
+    timestamps: Flags.boolean({
+      char: 't',
+      description: 'Prefix each log line with an RFC3339 UTC timestamp',
+      default: false
     })
   };
 
   async run() {
     const fastly = await this.getFastlyCli();
-    await fastly.logTail(this.args.serviceId, { debug: this.flags.debug });
+    await fastly.logTail(this.args.serviceId, {
+      debug: this.flags.debug,
+      timestamps: this.flags.timestamps
+    });
   }
 }
 

@@ -230,10 +230,17 @@ class FastlyCli {
     await this.run(args);
   }
 
-  async logTail(serviceId, { debug = false } = {}) {
+  async logTail(serviceId, { debug = false, timestamps = false } = {}) {
     this.ensureTokenIsSet();
     this.ensureServiceIdIsSafe(serviceId);
-    await this.run(['log-tail', '--service-id', serviceId], { debug });
+    const args = ['log-tail', '--service-id', serviceId];
+    if (timestamps) {
+      // Prefix each record with its request_start_us timestamp (RFC3339 UTC).
+      // The timestamp comes from the record metadata, not the message, so it
+      // applies to every line — both function-emitted and platform-emitted.
+      args.push('--timestamps');
+    }
+    await this.run(args, { debug });
   }
 }
 
