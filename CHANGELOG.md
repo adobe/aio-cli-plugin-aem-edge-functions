@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.1] - 2026-08-27
+
+### Added
+
+- `tail-logs`: add `--timestamps` / `-t` flag to prefix each log line with an RFC3339 UTC timestamp
+
 ## [1.0.0] - 2026-08-27
 
 ### Removed
