@@ -106,6 +106,24 @@ class DeployCommand extends BaseCommand {
       `\nDeploying ${chalk.bold(edgeFunctionName)} — ${path.basename(packageFile)} (${packageSizeMb} MB)\n`
     );
 
+    // Advisory: a package built without --include-source ships only the compiled
+    // wasm + manifest, so the deployed function can't be debugged from its
+    // sources. `aio aem edge-functions build` always includes source; warn when
+    // deploying a package (e.g. via --package) that doesn't. Never blocks.
+    try {
+      if (!this.packageHasSource(packageFile)) {
+        console.log(
+          chalk.yellow(
+            'Warning: this package has no src/ (built without --include-source). ' +
+              'The deployed function cannot be debugged from its sources — build with ' +
+              '`aio aem edge-functions build` (which includes source) before deploying.\n'
+          )
+        );
+      }
+    } catch {
+      // advisory only — never block the deploy on the source check
+    }
+
     const url = `${basePath}/edgeFunctions/${edgeFunctionName}/packages`;
     if (this.flags.debug) {
       console.log(`  Endpoint: ${url}\n`);
@@ -198,6 +216,30 @@ class DeployCommand extends BaseCommand {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Best-effort check whether a tar.gz package includes source (a src/ directory).
+   * Built without `--include-source`, a package ships only bin/main.wasm + the
+   * manifest, which cannot be debugged from its sources. Walks the tar headers the
+   * same way computePackageHash does; returns true on the first src/ path seen.
+   */
+  packageHasSource(tarGzPath) {
+    const tar = zlib.gunzipSync(fs.readFileSync(tarGzPath));
+    let offset = 0;
+    while (offset + 512 <= tar.length) {
+      const header = tar.subarray(offset, offset + 512);
+      if (header.every((b) => b === 0)) break;
+
+      const nameEnd = header.indexOf(0, 0);
+      const name = header.subarray(0, nameEnd < 0 ? 100 : Math.min(nameEnd, 100)).toString('utf8');
+      const size =
+        parseInt(header.subarray(124, 136).toString('utf8').trim().replace(/\0/g, ''), 8) || 0;
+
+      if (/(^|\/)src\//.test(name)) return true;
+      offset += 512 + Math.ceil(size / 512) * 512;
+    }
+    return false;
   }
 
   /**
