@@ -223,7 +223,9 @@ class FastlyCli {
   }
 
   async serve({ watch = false } = {}) {
-    const args = ['compute', 'serve'];
+    // Match build's --include-source so serving before a deploy doesn't leave
+    // a source-less package in pkg/ (the deployed package stays debuggable).
+    const args = ['compute', 'serve', '--include-source'];
     if (watch) {
       args.push('--watch');
     }
