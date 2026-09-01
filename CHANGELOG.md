@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.3] - 2026-09-01
+
+### Changed
+
+- `serve`: build with `--include-source` (matching `build`), so serving before a deploy no longer leaves a source-less package in `pkg/`
+
 ## [1.0.2] - 2026-09-01
 
 ### Added
