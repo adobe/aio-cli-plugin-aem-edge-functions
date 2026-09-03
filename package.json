@@ -13,7 +13,7 @@
     "@adobe/aio-lib-core-networking": "5.1.0",
     "@adobe/aio-lib-ims": "8.1.1",
     "@fastly/cli": "15.2.0",
-    "@inquirer/prompts": "8.3.0",
+    "@inquirer/prompts": "8.7.1",
     "@oclif/core": "4.11.11",
     "chalk": "4.1.2",
     "jsonwebtoken": "9.0.3",
