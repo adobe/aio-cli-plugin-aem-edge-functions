@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@adobe/eslint-config-aio-lib-config": "4.0.0",
-    "@inquirer/testing": "2.1.53",
+    "@inquirer/testing": "3.3.12",
     "eslint": "8.57.1",
     "eslint-config-prettier": "9.1.2",
     "eslint-plugin-prettier": "5.5.5",
