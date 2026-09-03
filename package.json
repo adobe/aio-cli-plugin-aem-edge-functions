@@ -11,7 +11,7 @@
     "@adobe/aio-lib-console": "5.5.0",
     "@adobe/aio-lib-core-config": "5.0.1",
     "@adobe/aio-lib-core-networking": "5.1.0",
-    "@adobe/aio-lib-ims": "8.1.1",
+    "@adobe/aio-lib-ims": "8.1.2",
     "@fastly/cli": "15.2.0",
     "@inquirer/prompts": "8.3.0",
     "@oclif/core": "4.11.11",
