@@ -188,6 +188,37 @@ The following command will package your code for deployment to your edge functio
 aio aem edge-functions build
 ```
 
+### AOT compilation (`--aot`)
+
+Ahead-of-time (AOT) compilation (`--enable-aot`) can make an edge function's JavaScript run
+significantly faster at the cost of a larger package and a slower build. It is opt-in — most
+functions do not need it; it is most useful for CPU-heavy workloads.
+
+```
+aio aem edge-functions build --aot
+```
+
+By default `--aot` builds in a throwaway temporary directory, so your project (including
+`fastly.toml`) is left untouched; the resulting package is copied back to `pkg/`. Sources are
+still included, exactly like a normal build.
+
+If you prefer to build in place (for example, for a non-standard project layout), use
+`--aot-in-place`. This backs up `fastly.toml` to `fastly.toml.bak`, adds the AOT build script to
+`fastly.toml`, and **leaves it in place** — restore the `.bak` to revert, or commit the change to
+keep AOT for future builds.
+
+```
+aio aem edge-functions build --aot-in-place
+```
+
+Notes:
+
+- If `fastly.toml` already contains an AOT build script, the build uses it as-is (nothing is
+  modified), whether or not `--aot` is passed. When building without `--aot`, a note is printed so
+  a leftover AOT setting is not a surprise.
+- AOT can substantially increase the package size; the compiled package must stay within the
+  Compute size limit. If it does not, build without sources yourself, or keep the standard build.
+
 ## Deploy
 
 The following command will deploy your package to your edge function. You will need to pass your own function name `<function-name>`, where function-name is the name you gave to your service in the edge functions configuration file. The service name must be at most **30 characters** long, start with a lowercase letter, end with a lowercase letter or digit, and contain only lowercase letters, digits, and hyphens.
