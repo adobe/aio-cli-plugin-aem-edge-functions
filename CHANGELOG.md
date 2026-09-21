@@ -1,10 +1,10 @@
 # Changelog
 
-## [1.0.4] - 2026-09-18
+## [1.0.4] - 2026-09-21
 
 ### Added
 
-- `build`: `--aot` flag for ahead-of-time compilation (`--enable-aot`) — faster runtime at the cost of a larger package and slower build; opt-in. Builds in a temporary directory, leaving the project (including `fastly.toml`) untouched, and still includes sources. `--aot-in-place` is an alternative that modifies `fastly.toml` in place (backing it up to `fastly.toml.bak`) and leaves the AOT build script there. A committed AOT build script in `fastly.toml` is respected as-is; when building without `--aot`, a note is printed if AOT is configured.
+- `build`: `--aot` flag for ahead-of-time compilation (`--enable-aot`) — faster runtime at the cost of a larger package and slower build; opt-in. Builds in a temporary directory, leaving the project (including `fastly.toml`) untouched, and still includes sources. Add `--save-aot` to persist the AOT build script into `fastly.toml` and build in place (commit it to carry AOT into future builds and CI/CD; `git` to revert). A committed AOT build script in `fastly.toml` is respected as-is; when building without `--aot`, a note is printed if AOT is configured.
 
 ## [1.0.3] - 2026-09-01
 

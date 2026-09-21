@@ -27,19 +27,19 @@ class BuildCommand extends BaseCommand {
         'untouched. Opt-in: produces a larger package and a slower build.',
       default: false
     }),
-    'aot-in-place': Flags.boolean({
+    'save-aot': Flags.boolean({
       description:
-        'AOT build that modifies fastly.toml in place (original backed up to fastly.toml.bak) ' +
-        'instead of using a temporary directory. Implies --aot. The AOT build script is left in ' +
-        'fastly.toml; restore the .bak to revert.',
+        'With --aot: persist the AOT build script into fastly.toml and build in place (no backup ' +
+        'file) so the setting carries into future builds and CI/CD. Commit fastly.toml to keep it; ' +
+        'use git to revert.',
       default: false
     })
   };
 
   async run() {
     const fastly = new FastlyCli();
-    const inPlace = this.flags['aot-in-place'];
-    await fastly.build({ aot: this.flags.aot || inPlace, aotInPlace: inPlace });
+    const save = this.flags['save-aot'];
+    await fastly.build({ aot: this.flags.aot || save, saveAot: save });
   }
 }
 

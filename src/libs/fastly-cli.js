@@ -261,17 +261,16 @@ class FastlyCli {
     });
   }
 
-  async build({ aot = false, aotInPlace = false } = {}) {
+  async build({ aot = false, saveAot = false } = {}) {
     if (!aot) {
-      // If fastly.toml already configures AOT (e.g. a prior --aot-in-place that was kept/committed,
-      // or added by hand), the build uses it even without --aot. Surface that so it is not a
-      // surprise; removal is left to the customer (edit fastly.toml, or restore fastly.toml.bak).
+      // If fastly.toml already configures AOT (e.g. a prior --save-aot that was committed, or added
+      // by hand), the build uses it even without --aot. Surface that so it is not a surprise.
       const manifestPath = path.join(process.cwd(), 'fastly.toml');
       if (fs.existsSync(manifestPath) && buildScriptHasAot(fs.readFileSync(manifestPath, 'utf8'))) {
         console.warn(
           'Note: fastly.toml configures AOT compilation (--enable-aot in [scripts.build]), so this ' +
-            'build uses AOT even though --aot was not passed. Remove it from fastly.toml (or restore ' +
-            'fastly.toml.bak) if you did not intend this.'
+            'build uses AOT even though --aot was not passed. Remove it from fastly.toml if you did ' +
+            'not intend this.'
         );
       }
       await this.run(['compute', 'build', '--include-source']);
@@ -301,7 +300,7 @@ class FastlyCli {
     // Reference js-compute-runtime by relative path: `fastly compute build` runs an explicit
     // [scripts.build] via `sh` without node_modules/.bin on PATH, so a bare `js-compute-runtime`
     // would not resolve. The path resolves against the build's working directory (the temp dir in
-    // default mode — where node_modules is symlinked — or the project dir in --aot-in-place mode).
+    // default mode — where node_modules is symlinked — or the project dir in --save-aot mode).
     const aotBuild =
       './node_modules/.bin/js-compute-runtime --enable-aot ./src/index.js ./bin/main.wasm';
 
@@ -313,26 +312,17 @@ class FastlyCli {
       return;
     }
 
-    if (aotInPlace) {
-      // In-place mode: back up fastly.toml, add the AOT [scripts.build], build in the project
-      // directory, and LEAVE the modified manifest in place. The backup holds the original; restore
-      // it to revert, or commit the change to keep AOT. AOT then persists for subsequent builds.
-      const backupPath = `${manifestPath}.bak`;
-      if (fs.existsSync(backupPath)) {
-        throw new Error(
-          `--aot-in-place: backup ${backupPath} already exists. Restore or remove it before running again.`
-        );
-      }
-      fs.copyFileSync(manifestPath, backupPath);
+    if (saveAot) {
+      // --save-aot: persist the AOT build script into fastly.toml and build in place. No backup
+      // file — it is a normal edit the customer commits (and reverts with git). The manifest is
+      // left modified so subsequent builds and CI/CD use AOT.
       fs.writeFileSync(manifestPath, withBuildScript(manifest, aotBuild), 'utf8');
       console.log(
-        'Building with AOT compilation (--enable-aot); fastly.toml modified in place ' +
-          `(original backed up to ${path.basename(backupPath)}).`
+        'Building with AOT compilation (--enable-aot); added the AOT build script to fastly.toml.'
       );
       await this.run(['compute', 'build', '--include-source']);
       console.log(
-        `fastly.toml now contains the AOT build script. Restore ${path.basename(backupPath)} to ` +
-          'revert, or commit the change to keep AOT.'
+        'fastly.toml now contains the AOT build script — commit it to keep AOT (git to revert).'
       );
       return;
     }

@@ -198,17 +198,16 @@ functions do not need it; it is most useful for CPU-heavy workloads.
 aio aem edge-functions build --aot
 ```
 
-By default `--aot` builds in a throwaway temporary directory, so your project (including
-`fastly.toml`) is left untouched; the resulting package is copied back to `pkg/`. Sources are
-still included, exactly like a normal build.
+`--aot` builds in a throwaway temporary directory, so your project (including `fastly.toml`) is
+left untouched; the resulting package is copied back to `pkg/`. Sources are still included,
+exactly like a normal build. This is the way to try AOT during development.
 
-If you prefer to build in place (for example, for a non-standard project layout), use
-`--aot-in-place`. This backs up `fastly.toml` to `fastly.toml.bak`, adds the AOT build script to
-`fastly.toml`, and **leaves it in place** — restore the `.bak` to revert, or commit the change to
-keep AOT for future builds.
+Once you want AOT permanently (for example, in your CI/CD pipeline), add `--save-aot`. This writes
+the AOT build script into `fastly.toml` and builds in place — commit `fastly.toml` to keep AOT for
+all future builds, or use `git` to revert. No backup file is created.
 
 ```
-aio aem edge-functions build --aot-in-place
+aio aem edge-functions build --aot --save-aot
 ```
 
 Notes:
@@ -218,6 +217,9 @@ Notes:
   a leftover AOT setting is not a surprise.
 - AOT can substantially increase the package size; the compiled package must stay within the
   Compute size limit. If it does not, build without sources yourself, or keep the standard build.
+- AOT requires the `@bytecodealliance/weval` version that `@fastly/js-compute` pins. If your
+  project overrides weval to a different version (for example, to clear an `npm audit` finding),
+  AOT can fail to compile — keep weval aligned with the version js-compute depends on.
 
 ## Deploy
 
