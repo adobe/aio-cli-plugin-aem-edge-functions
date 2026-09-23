@@ -12,7 +12,12 @@
 
 const assert = require('assert');
 const FastlyCli = require('../../src/libs/fastly-cli');
-const { filterOutput, shouldFilterLine } = require('../../src/libs/fastly-cli');
+const {
+  filterOutput,
+  shouldFilterLine,
+  withBuildScript,
+  buildScriptHasAot
+} = require('../../src/libs/fastly-cli');
 
 describe('FastlyCli', function () {
   describe('#filterOutput', function () {
@@ -222,6 +227,76 @@ describe('FastlyCli', function () {
       assert.throws(function () {
         fastlyCli.ensureServiceIdIsSafe('my_function');
       }, /Invalid service name/);
+    });
+  });
+
+  describe('#buildScriptHasAot (AOT)', function () {
+    it('is false when there is no [scripts] section', function () {
+      assert.strictEqual(buildScriptHasAot('name = "svc"\n'), false);
+    });
+
+    it('is false when [scripts] has no build key', function () {
+      assert.strictEqual(buildScriptHasAot('[scripts]\n  post_init = "npm install"\n'), false);
+    });
+
+    it('is false for a build script without --enable-aot', function () {
+      assert.strictEqual(
+        buildScriptHasAot(
+          '[scripts]\n  build = "js-compute-runtime ./src/index.js ./bin/main.wasm"\n'
+        ),
+        false
+      );
+    });
+
+    it('is true for a build script with --enable-aot', function () {
+      assert.strictEqual(
+        buildScriptHasAot(
+          '[scripts]\n  build = "js-compute-runtime --enable-aot ./src/index.js ./bin/main.wasm"\n'
+        ),
+        true
+      );
+    });
+
+    it('ignores --enable-aot outside the [scripts] build key', function () {
+      assert.strictEqual(
+        buildScriptHasAot('[scripts]\n  post_init = "echo --enable-aot"\n'),
+        false
+      );
+      assert.strictEqual(
+        buildScriptHasAot('[other]\n  build = "js-compute-runtime --enable-aot x y"\n'),
+        false
+      );
+    });
+  });
+
+  describe('#withBuildScript (AOT)', function () {
+    const CMD = 'js-compute-runtime --enable-aot ./src/index.js ./bin/main.wasm';
+
+    it('replaces an existing [scripts.build] line, preserving other keys', function () {
+      const toml =
+        '[scripts]\n  build = "js-compute-runtime ./src/index.js ./bin/main.wasm"\n  post_init = "npm install"\n';
+      const out = withBuildScript(toml, CMD);
+      assert.ok(out.includes(`build = "${CMD}"`));
+      assert.ok(!out.includes('build = "js-compute-runtime ./src/index.js ./bin/main.wasm"'));
+      assert.ok(out.includes('post_init = "npm install"'));
+      assert.strictEqual(buildScriptHasAot(out), true);
+    });
+
+    it('adds a build line under an existing [scripts] section', function () {
+      const toml = '[scripts]\n  post_init = "npm install"\n\n[local_server]\n';
+      const out = withBuildScript(toml, CMD);
+      assert.ok(out.includes(`build = "${CMD}"`));
+      assert.ok(out.includes('post_init = "npm install"'));
+      assert.ok(out.includes('[local_server]'));
+      assert.strictEqual(buildScriptHasAot(out), true);
+    });
+
+    it('creates a [scripts] section when none exists', function () {
+      const out = withBuildScript('name = "svc"\n', CMD);
+      assert.ok(out.includes('[scripts]'));
+      assert.ok(out.includes(`build = "${CMD}"`));
+      assert.ok(out.includes('name = "svc"'));
+      assert.strictEqual(buildScriptHasAot(out), true);
     });
   });
 });

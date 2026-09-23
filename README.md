@@ -188,6 +188,44 @@ The following command will package your code for deployment to your edge functio
 aio aem edge-functions build
 ```
 
+### AOT compilation (`--aot`)
+
+Ahead-of-time (AOT) compilation (`--enable-aot`) can make an edge function's JavaScript run
+significantly faster at the cost of a larger package and a slower build. It is opt-in — most
+functions do not need it; it is most useful for CPU-heavy workloads.
+
+> **Experimental (plugin support).** AOT compilation is a stable `@fastly/js-compute`
+> capability, but this plugin's `--aot` / `--save-aot` flags are experimental. Treat AOT as a
+> deliberate optimization rather than a default build option: enable it only after confirming —
+> ideally by measuring — that the runtime speed-up outweighs the larger package for your workload.
+
+```
+aio aem edge-functions build --aot
+```
+
+`--aot` builds in a throwaway temporary directory, so your project (including `fastly.toml`) is
+left untouched; the resulting package is copied back to `pkg/`. Sources are still included,
+exactly like a normal build. This is the way to try AOT during development.
+
+Once you want AOT permanently (for example, in your CI/CD pipeline), add `--save-aot`. This writes
+the AOT build script into `fastly.toml` and builds in place — commit `fastly.toml` to keep AOT for
+all future builds, or use `git` to revert. No backup file is created.
+
+```
+aio aem edge-functions build --aot --save-aot
+```
+
+Notes:
+
+- If `fastly.toml` already contains an AOT build script, the build uses it as-is (nothing is
+  modified), whether or not `--aot` is passed. When building without `--aot`, a note is printed so
+  a leftover AOT setting is not a surprise.
+- AOT can substantially increase the package size; the compiled package must stay within the
+  Compute size limit. If it does not, build without sources yourself, or keep the standard build.
+- AOT requires the `@bytecodealliance/weval` version that `@fastly/js-compute` pins. If your
+  project overrides weval to a different version (for example, to clear an `npm audit` finding),
+  AOT can fail to compile — keep weval aligned with the version js-compute depends on.
+
 ## Deploy
 
 The following command will deploy your package to your edge function. You will need to pass your own function name `<function-name>`, where function-name is the name you gave to your service in the edge functions configuration file. The service name must be at most **30 characters** long, start with a lowercase letter, end with a lowercase letter or digit, and contain only lowercase letters, digits, and hyphens.

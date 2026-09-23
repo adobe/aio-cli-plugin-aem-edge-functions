@@ -14,13 +14,33 @@
 
 const BaseCommand = require('../../../libs/base-command');
 const FastlyCli = require('../../../libs/fastly-cli');
+const { Flags } = require('@oclif/core');
 
 class BuildCommand extends BaseCommand {
   static description = 'Build edge function package.';
 
+  static flags = {
+    aot: Flags.boolean({
+      description:
+        'Build with ahead-of-time (AOT) compilation (--enable-aot) for faster runtime performance. ' +
+        'Builds in a throwaway temporary directory, leaving the project (including fastly.toml) ' +
+        'untouched. Experimental plugin feature — enable when optimizing (weigh the larger package ' +
+        'and slower build against a measured speed gain), not by default.',
+      default: false
+    }),
+    'save-aot': Flags.boolean({
+      description:
+        'Enable AOT and persist its build script into fastly.toml, building in place (no backup ' +
+        'file) so the setting carries into future builds and CI/CD. Implies --aot. Commit ' +
+        'fastly.toml to keep it; use git to revert.',
+      default: false
+    })
+  };
+
   async run() {
     const fastly = new FastlyCli();
-    await fastly.build();
+    const save = this.flags['save-aot'];
+    await fastly.build({ aot: this.flags.aot || save, saveAot: save });
   }
 }
 

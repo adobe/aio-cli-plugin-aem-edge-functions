@@ -11,6 +11,9 @@
  */
 
 const { execFileSync, spawn } = require('child_process');
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
 
 /**
  * Patterns for lines that should be hidden from customers because they
@@ -56,6 +59,58 @@ function stripAnsi(str) {
 function shouldFilterLine(line) {
   const plain = stripAnsi(line);
   return OUTPUT_FILTERS.some((pattern) => pattern.test(plain)) || SPINNER_FRAME_RE.test(plain);
+}
+
+/**
+ * Return fastly.toml contents with [scripts.build] set to `buildCmd` (replacing any existing
+ * build line, else adding one, else creating a [scripts] table). Used on a throwaway COPY of the
+ * manifest for an AOT build — the customer's fastly.toml is never modified.
+ */
+function withBuildScript(toml, buildCmd) {
+  const buildLine = `  build = "${buildCmd}"`;
+  const lines = toml.split('\n');
+  let inScripts = false;
+  let scriptsHeaderIdx = -1;
+  let buildLineIdx = -1;
+  for (let i = 0; i < lines.length; i++) {
+    const section = lines[i].match(/^\s*\[([^\]]+)\]\s*$/);
+    if (section) {
+      inScripts = section[1].trim() === 'scripts';
+      if (inScripts) scriptsHeaderIdx = i;
+      continue;
+    }
+    if (inScripts && /^\s*build\s*=/.test(lines[i])) buildLineIdx = i;
+  }
+  if (buildLineIdx >= 0) {
+    lines[buildLineIdx] = buildLine;
+    return lines.join('\n');
+  }
+  if (scriptsHeaderIdx >= 0) {
+    lines.splice(scriptsHeaderIdx + 1, 0, buildLine);
+    return lines.join('\n');
+  }
+  const sep = toml.endsWith('\n') ? '' : '\n';
+  return `${toml}${sep}\n[scripts]\n${buildLine}\n`;
+}
+
+/**
+ * True if fastly.toml's [scripts.build] already enables AOT (`--enable-aot`). Used to respect a
+ * committed AOT decision: when present, build the project as-is without modifying anything.
+ */
+function buildScriptHasAot(toml) {
+  const lines = toml.split('\n');
+  let inScripts = false;
+  for (const line of lines) {
+    const section = line.match(/^\s*\[([^\]]+)\]\s*$/);
+    if (section) {
+      inScripts = section[1].trim() === 'scripts';
+      continue;
+    }
+    if (inScripts && /^\s*build\s*=/.test(line) && line.includes('--enable-aot')) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -206,8 +261,116 @@ class FastlyCli {
     });
   }
 
-  async build() {
-    await this.run(['compute', 'build', '--include-source']);
+  async build({ aot = false, saveAot = false } = {}) {
+    if (!aot) {
+      // If fastly.toml already configures AOT (e.g. a prior --save-aot that was committed, or added
+      // by hand), the build uses it even without --aot. Surface that so it is not a surprise.
+      const manifestPath = path.join(process.cwd(), 'fastly.toml');
+      if (fs.existsSync(manifestPath) && buildScriptHasAot(fs.readFileSync(manifestPath, 'utf8'))) {
+        console.warn(
+          'Note: fastly.toml configures AOT compilation (--enable-aot in [scripts.build]), so this ' +
+            'build uses AOT even though --aot was not passed. Remove it from fastly.toml if you did ' +
+            'not intend this.'
+        );
+      }
+      await this.run(['compute', 'build', '--include-source']);
+      return;
+    }
+
+    // AOT is opt-in and must keep every normal build feature (notably --include-source).
+    // `--enable-aot` is a js-compute-runtime flag with no `fastly compute build` passthrough, so it
+    // can only reach the compiler via the project's [scripts.build].
+    const projectDir = process.cwd();
+    const srcDir = path.join(projectDir, 'src');
+    const nodeModules = path.join(projectDir, 'node_modules');
+    const manifestPath = path.join(projectDir, 'fastly.toml');
+    if (!fs.existsSync(path.join(nodeModules, '.bin', 'js-compute-runtime'))) {
+      throw new Error(
+        "--aot: js-compute-runtime not found in node_modules. Run 'npm install' in the project first."
+      );
+    }
+    if (!fs.existsSync(srcDir) || !fs.existsSync(manifestPath)) {
+      throw new Error(
+        `--aot: expected a standard project layout (src/ and fastly.toml) in ${projectDir}. ` +
+          'For a custom layout, add --enable-aot to your build script and build without --aot.'
+      );
+    }
+
+    const manifest = fs.readFileSync(manifestPath, 'utf8');
+    // Reference js-compute-runtime by relative path: `fastly compute build` runs an explicit
+    // [scripts.build] via `sh` without node_modules/.bin on PATH, so a bare `js-compute-runtime`
+    // would not resolve. The path resolves against the build's working directory (the temp dir in
+    // default mode — where node_modules is symlinked — or the project dir in --save-aot mode).
+    const aotBuild =
+      './node_modules/.bin/js-compute-runtime --enable-aot ./src/index.js ./bin/main.wasm';
+
+    // Respect a committed decision: if fastly.toml already carries an AOT build script, build it
+    // as-is without modifying anything or using a temporary directory.
+    if (buildScriptHasAot(manifest)) {
+      console.log('fastly.toml already configures AOT (--enable-aot); building as-is.');
+      await this.run(['compute', 'build', '--include-source']);
+      return;
+    }
+
+    // AOT here is driven by the plugin (not a committed fastly.toml script); flag it as an
+    // experimental plugin feature so symlink/Windows quirks are easier to attribute.
+    console.warn(
+      'Note: AOT is an experimental feature of this plugin. If the build fails (for example a ' +
+        'symlink or Windows issue), that is the likely cause — rebuild without --aot to fall back.'
+    );
+
+    if (saveAot) {
+      // --save-aot: persist the AOT build script into fastly.toml and build in place. No backup
+      // file — it is a normal edit the customer commits (and reverts with git). The manifest is
+      // left modified so subsequent builds and CI/CD use AOT.
+      fs.writeFileSync(manifestPath, withBuildScript(manifest, aotBuild), 'utf8');
+      console.log(
+        'Building with AOT compilation (--enable-aot); added the AOT build script to fastly.toml.'
+      );
+      await this.run(['compute', 'build', '--include-source']);
+      console.log(
+        'fastly.toml now contains the AOT build script — commit it to keep AOT (git to revert).'
+      );
+      return;
+    }
+
+    // Default mode: build in a throwaway directory whose fastly.toml is a COPY carrying the AOT
+    // [scripts.build]; src/ and package.json are copied and node_modules is symlinked so the build
+    // resolves normally. The customer's project (including fastly.toml) is never modified; the
+    // resulting package is copied back to pkg/.
+    const buildDir = fs.mkdtempSync(path.join(os.tmpdir(), 'aem-ef-aot-'));
+    try {
+      fs.writeFileSync(
+        path.join(buildDir, 'fastly.toml'),
+        withBuildScript(manifest, aotBuild),
+        'utf8'
+      );
+      fs.cpSync(srcDir, path.join(buildDir, 'src'), { recursive: true });
+      const pkgJson = path.join(projectDir, 'package.json');
+      if (fs.existsSync(pkgJson)) {
+        fs.copyFileSync(pkgJson, path.join(buildDir, 'package.json'));
+      }
+      fs.symlinkSync(nodeModules, path.join(buildDir, 'node_modules'), 'dir');
+      fs.mkdirSync(path.join(buildDir, 'bin'), { recursive: true });
+
+      console.log('Building with AOT compilation (--enable-aot) in a temporary directory...');
+      await this.run(['compute', 'build', '--include-source', '-C', buildDir]);
+
+      const builtPkgDir = path.join(buildDir, 'pkg');
+      const built = fs.existsSync(builtPkgDir)
+        ? fs.readdirSync(builtPkgDir).filter((f) => f.endsWith('.tar.gz'))
+        : [];
+      if (built.length === 0) {
+        throw new Error('--aot: build did not produce a package under pkg/.');
+      }
+      const destPkgDir = path.join(projectDir, 'pkg');
+      fs.mkdirSync(destPkgDir, { recursive: true });
+      for (const f of built) {
+        fs.copyFileSync(path.join(builtPkgDir, f), path.join(destPkgDir, f));
+      }
+    } finally {
+      fs.rmSync(buildDir, { recursive: true, force: true });
+    }
   }
 
   async deploy(serviceId, { debug = false } = {}) {
@@ -249,3 +412,5 @@ class FastlyCli {
 module.exports = FastlyCli;
 module.exports.filterOutput = filterOutput;
 module.exports.shouldFilterLine = shouldFilterLine;
+module.exports.withBuildScript = withBuildScript;
+module.exports.buildScriptHasAot = buildScriptHasAot;
