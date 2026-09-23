@@ -24,7 +24,8 @@ class BuildCommand extends BaseCommand {
       description:
         'Build with ahead-of-time (AOT) compilation (--enable-aot) for faster runtime performance. ' +
         'Builds in a throwaway temporary directory, leaving the project (including fastly.toml) ' +
-        'untouched. Opt-in: produces a larger package and a slower build.',
+        'untouched. Experimental plugin feature — enable when optimizing (weigh the larger package ' +
+        'and slower build against a measured speed gain), not by default.',
       default: false
     }),
     'save-aot': Flags.boolean({

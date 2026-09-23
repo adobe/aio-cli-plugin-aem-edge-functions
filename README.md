@@ -194,6 +194,11 @@ Ahead-of-time (AOT) compilation (`--enable-aot`) can make an edge function's Jav
 significantly faster at the cost of a larger package and a slower build. It is opt-in — most
 functions do not need it; it is most useful for CPU-heavy workloads.
 
+> **Experimental (plugin support).** AOT compilation is a stable `@fastly/js-compute`
+> capability, but this plugin's `--aot` / `--save-aot` flags are experimental. Treat AOT as a
+> deliberate optimization rather than a default build option: enable it only after confirming —
+> ideally by measuring — that the runtime speed-up outweighs the larger package for your workload.
+
 ```
 aio aem edge-functions build --aot
 ```
