@@ -29,9 +29,9 @@ class BuildCommand extends BaseCommand {
     }),
     'save-aot': Flags.boolean({
       description:
-        'With --aot: persist the AOT build script into fastly.toml and build in place (no backup ' +
-        'file) so the setting carries into future builds and CI/CD. Commit fastly.toml to keep it; ' +
-        'use git to revert.',
+        'Enable AOT and persist its build script into fastly.toml, building in place (no backup ' +
+        'file) so the setting carries into future builds and CI/CD. Implies --aot. Commit ' +
+        'fastly.toml to keep it; use git to revert.',
       default: false
     })
   };
