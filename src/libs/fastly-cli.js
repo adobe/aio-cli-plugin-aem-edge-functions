@@ -312,6 +312,13 @@ class FastlyCli {
       return;
     }
 
+    // AOT here is driven by the plugin (not a committed fastly.toml script); flag it as an
+    // experimental plugin feature so symlink/Windows quirks are easier to attribute.
+    console.warn(
+      'Note: AOT is an experimental feature of this plugin. If the build fails (for example a ' +
+        'symlink or Windows issue), that is the likely cause — rebuild without --aot to fall back.'
+    );
+
     if (saveAot) {
       // --save-aot: persist the AOT build script into fastly.toml and build in place. No backup
       // file — it is a normal edit the customer commits (and reverts with git). The manifest is
