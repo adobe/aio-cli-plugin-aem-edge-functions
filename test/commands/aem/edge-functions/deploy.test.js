@@ -76,6 +76,111 @@ describe('DeployCommand', () => {
     it('should define legacy flag', () => {
       assert.ok(DeployCommand.flags.legacy);
     });
+
+    it('should define allow-oversize flag', () => {
+      assert.ok(DeployCommand.flags['allow-oversize']);
+    });
+  });
+
+  describe('package size guard', () => {
+    it('blocks a non-interactive oversize deploy without --allow-oversize', async () => {
+      fs.statSync.returns({ size: 100_000_001 });
+      const origTTY = process.stdin.isTTY;
+      process.stdin.isTTY = false;
+      try {
+        await assert.rejects(() => command.run());
+      } finally {
+        process.stdin.isTTY = origTTY;
+      }
+
+      assert.ok(command.error.calledOnce);
+      assert.ok(/over Fastly's 100.0 MB/.test(command.error.firstCall.args[0]));
+      assert.ok(mockFetch.notCalled, 'should not POST an oversize package');
+    });
+
+    it('warns but proceeds in the warn band', async () => {
+      fs.statSync.returns({ size: 95_000_000 });
+      mockFetch.resolves({
+        ok: true,
+        json: async () => ({ id: '8', name: 'my-function', size: 1024 })
+      });
+
+      const logged = [];
+      const origLog = console.log;
+      console.log = (...args) => logged.push(args.join(' '));
+      try {
+        await command.run();
+      } finally {
+        console.log = origLog;
+      }
+
+      assert.ok(command.error.notCalled);
+      assert.ok(mockFetch.calledOnce, 'warn band should still upload');
+      assert.ok(/approaching Fastly's 100.0 MB/.test(logged.join('\n')));
+    });
+
+    it('proceeds over the limit with --allow-oversize (no prompt)', async () => {
+      fs.statSync.returns({ size: 120_000_000 });
+      command.flags['allow-oversize'] = true;
+      mockFetch.resolves({
+        ok: true,
+        json: async () => ({ id: '9', name: 'my-function', size: 1024 })
+      });
+
+      await command.run();
+
+      assert.ok(command.error.notCalled);
+      assert.ok(mockFetch.calledOnce, 'should POST when --allow-oversize is set');
+    });
+
+    it('prompts and cancels the deploy when "send anyway" is declined', async () => {
+      fs.statSync.returns({ size: 120_000_000 });
+      command.promptConfirm = sandbox.stub().resolves(false);
+      const origTTY = process.stdin.isTTY;
+      process.stdin.isTTY = true;
+      try {
+        await command.run();
+      } finally {
+        process.stdin.isTTY = origTTY;
+      }
+
+      assert.ok(command.promptConfirm.calledOnce);
+      assert.ok(command.error.notCalled, 'declining is not an error');
+      assert.ok(mockFetch.notCalled, 'declining should not POST');
+    });
+
+    it('prompts and proceeds when "send anyway" is confirmed', async () => {
+      fs.statSync.returns({ size: 120_000_000 });
+      command.promptConfirm = sandbox.stub().resolves(true);
+      mockFetch.resolves({
+        ok: true,
+        json: async () => ({ id: '11', name: 'my-function', size: 1024 })
+      });
+      const origTTY = process.stdin.isTTY;
+      process.stdin.isTTY = true;
+      try {
+        await command.run();
+      } finally {
+        process.stdin.isTTY = origTTY;
+      }
+
+      assert.ok(command.promptConfirm.calledOnce);
+      assert.ok(command.error.notCalled);
+      assert.ok(mockFetch.calledOnce, 'confirming should POST');
+    });
+
+    it('does not guard a normally sized package', async () => {
+      fs.statSync.returns({ size: 2 * 1024 * 1024 });
+      mockFetch.resolves({
+        ok: true,
+        json: async () => ({ id: '10', name: 'my-function', size: 1024 })
+      });
+
+      await command.run();
+
+      assert.ok(command.error.notCalled);
+      assert.ok(mockFetch.calledOnce);
+    });
   });
 
   describe('--force flag', () => {

@@ -14,6 +14,7 @@ const { execFileSync, spawn } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { classifyPackageSize, bytesToMb, PACKAGE_SIZE_LIMIT_BYTES } = require('./package-size');
 
 /**
  * Patterns for lines that should be hidden from customers because they
@@ -111,6 +112,40 @@ function buildScriptHasAot(toml) {
     }
   }
   return false;
+}
+
+/**
+ * Warn (never block) if the freshly built package in `pkgDir` is at or near the Compute
+ * compressed-package size limit. Inspects the most recently written .tar.gz.
+ */
+function warnOnPackageSize(pkgDir) {
+  if (!fs.existsSync(pkgDir)) return;
+  const built = fs
+    .readdirSync(pkgDir)
+    .filter((f) => f.endsWith('.tar.gz'))
+    .map((f) => {
+      const stat = fs.statSync(path.join(pkgDir, f));
+      return { name: f, size: stat.size, mtimeMs: stat.mtimeMs };
+    })
+    .sort((a, b) => b.mtimeMs - a.mtimeMs);
+  if (built.length === 0) return;
+
+  const { name, size } = built[0];
+  const level = classifyPackageSize(size);
+  if (level === 'ok') return;
+
+  const limitMb = bytesToMb(PACKAGE_SIZE_LIMIT_BYTES);
+  if (level === 'over') {
+    console.warn(
+      `Warning: ${name} is ${bytesToMb(size)} MB, over Fastly's ${limitMb} MB compressed-package ` +
+        'limit — deploy will be rejected. AOT roughly triples the wasm; enable it only when needed.'
+    );
+  } else {
+    console.warn(
+      `Warning: ${name} is ${bytesToMb(size)} MB, approaching Fastly's ${limitMb} MB ` +
+        'compressed-package limit.'
+    );
+  }
 }
 
 /**
@@ -262,6 +297,11 @@ class FastlyCli {
   }
 
   async build({ aot = false, saveAot = false } = {}) {
+    await this.runBuild({ aot, saveAot });
+    warnOnPackageSize(path.join(process.cwd(), 'pkg'));
+  }
+
+  async runBuild({ aot = false, saveAot = false } = {}) {
     if (!aot) {
       // If fastly.toml already configures AOT (e.g. a prior --save-aot that was committed, or added
       // by hand), the build uses it even without --aot. Surface that so it is not a surprise.

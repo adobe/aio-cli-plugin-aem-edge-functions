@@ -22,6 +22,12 @@ const FormData = require('form-data');
 const networking = require('@adobe/aio-lib-core-networking');
 const ora = require('ora-classic');
 const chalk = require('chalk');
+const inquirer = require('@inquirer/prompts');
+const {
+  classifyPackageSize,
+  bytesToMb,
+  PACKAGE_SIZE_LIMIT_BYTES
+} = require('../../../libs/package-size');
 
 const SERVICE_NAME_PATTERN = /^[a-z]([a-z0-9-]{0,28}[a-z0-9])?$/;
 
@@ -50,6 +56,13 @@ class DeployCommand extends BaseCommand {
     }),
     legacy: Flags.boolean({
       description: 'Use the legacy deploy path',
+      default: false
+    }),
+    'allow-oversize': Flags.boolean({
+      description:
+        'Skip the interactive "send anyway" confirmation and deploy even when the package is over ' +
+        "Fastly's 100 MB compressed-package limit (for non-interactive/CI use; the upload may still " +
+        'be rejected by Fastly).',
       default: false
     })
   };
@@ -101,10 +114,29 @@ class DeployCommand extends BaseCommand {
     }
 
     const packageSize = fs.statSync(packageFile).size;
-    const packageSizeMb = (packageSize / (1024 * 1024)).toFixed(2);
+    const packageSizeMb = bytesToMb(packageSize);
     console.log(
       `\nDeploying ${chalk.bold(edgeFunctionName)} — ${path.basename(packageFile)} (${packageSizeMb} MB)\n`
     );
+
+    // Guard the Fastly compressed-package size limit before uploading. Warn near the limit; over it,
+    // require an explicit "send anyway" confirmation (--allow-oversize skips the prompt for CI).
+    const sizeClass = classifyPackageSize(packageSize);
+    if (sizeClass === 'warn') {
+      const limitMb = bytesToMb(PACKAGE_SIZE_LIMIT_BYTES);
+      console.log(
+        chalk.yellow(
+          `Warning: package is ${packageSizeMb} MB, approaching Fastly's ${limitMb} MB ` +
+            'compressed-package limit.\n'
+        )
+      );
+    } else if (sizeClass === 'over') {
+      const proceed = await this.confirmOversizeDeploy(packageSizeMb);
+      if (!proceed) {
+        console.log('Deploy cancelled.');
+        return;
+      }
+    }
 
     // Advisory: a package built without --include-source ships only the compiled
     // wasm + manifest, so the deployed function can't be debugged from its
@@ -203,6 +235,41 @@ class DeployCommand extends BaseCommand {
         )
       );
     }
+  }
+
+  /**
+   * Confirm an over-limit deploy ("send anyway"). Returns true to proceed. --allow-oversize skips
+   * the prompt (for CI); interactively, asks for confirmation (default no); non-interactively
+   * without the flag, errors out so an oversize package never silently uploads in CI.
+   */
+  async confirmOversizeDeploy(packageSizeMb) {
+    const limitMb = bytesToMb(PACKAGE_SIZE_LIMIT_BYTES);
+    if (this.flags['allow-oversize']) {
+      console.log(
+        chalk.yellow(
+          `Warning: package is ${packageSizeMb} MB, over Fastly's ${limitMb} MB compressed-package ` +
+            'limit — sending anyway (--allow-oversize); Fastly may still reject it.\n'
+        )
+      );
+      return true;
+    }
+    const message =
+      `Package is ${packageSizeMb} MB, over Fastly's ${limitMb} MB compressed-package limit — ` +
+      'the deploy will likely be rejected. Send anyway?';
+    if (process.stdin.isTTY) {
+      return this.promptConfirm(message);
+    }
+    this.error(
+      `Package is ${packageSizeMb} MB, over Fastly's ${limitMb} MB compressed-package limit. ` +
+        'Reduce the package size (AOT roughly triples the wasm; enable it only when needed), or ' +
+        'pass --allow-oversize to send it anyway.'
+    );
+    return false;
+  }
+
+  // Interactive yes/no confirmation (default no). Wrapped for testability.
+  async promptConfirm(message) {
+    return inquirer.confirm({ message, default: false });
   }
 
   async fetchEdgeFunction(edgeFunctionName, basePath, accessToken) {
