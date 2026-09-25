@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.5] - 2026-09-25
+
+### Added
+
+- Package size guard for Fastly's 100 MB compressed-package limit: `build` warns when the produced package approaches (~90 MB) or exceeds the limit; `deploy` warns near the limit and, when the package is over it, asks for an explicit "send anyway" confirmation before uploading (`--allow-oversize` skips the prompt for non-interactive/CI use). AOT builds are the most likely to approach the limit.
+
 ## [1.0.4] - 2026-09-23
 
 ### Added

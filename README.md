@@ -221,7 +221,9 @@ Notes:
   modified), whether or not `--aot` is passed. When building without `--aot`, a note is printed so
   a leftover AOT setting is not a surprise.
 - AOT can substantially increase the package size; the compiled package must stay within the
-  Compute size limit. If it does not, build without sources yourself, or keep the standard build.
+  Compute size limit (see [Package size limit](#package-size-limit)). `build` warns when a package
+  approaches or exceeds the limit. If AOT pushes you over, build without sources yourself, or keep
+  the standard build.
 - AOT requires the `@bytecodealliance/weval` version that `@fastly/js-compute` pins. If your
   project overrides weval to a different version (for example, to clear an `npm audit` finding),
   AOT can fail to compile — keep weval aligned with the version js-compute depends on.
@@ -235,6 +237,20 @@ To be able to deploy, you need to have the "AEM Administrator" product profile f
 ```
 aio aem edge-functions deploy first-function
 ```
+
+### Package size limit
+
+Fastly rejects a compressed Compute package larger than **100 MB** (100,000,000 bytes). The plugin
+guards this limit on the package size (the compressed `.tar.gz`, not the uncompressed wasm):
+
+- `build` prints a warning when the produced package approaches (from ~90 MB) or exceeds the limit.
+- `deploy` warns when the package approaches the limit and proceeds. When the package is **over**
+  the limit, it asks for an explicit "send anyway" confirmation (defaulting to no) before uploading,
+  since Fastly will likely reject it. In non-interactive/CI runs, pass `--allow-oversize` to send it
+  anyway; without that flag an over-limit deploy stops.
+
+AOT roughly triples the wasm, so AOT builds are the most likely to approach the limit — enable AOT
+only when needed.
 
 ### Skip unchanged packages
 
