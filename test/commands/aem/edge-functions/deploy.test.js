@@ -353,6 +353,43 @@ describe('DeployCommand', () => {
       assert.ok(command.error.calledWith(sinon.match(/Forbidden/)));
     });
 
+    it('prints a CDN access-rule hint and surfaces the request-id on HTTP 403', async () => {
+      mockFetch.resolves({
+        ok: false,
+        status: 403,
+        json: async () => ({ title: 'Forbidden', status: 403 }),
+        headers: { get: (h) => (h === 'x-request-id' ? 'trace-abc-123' : null) }
+      });
+
+      const logged = [];
+      const origLog = console.log;
+      console.log = (...args) => logged.push(args.join(' '));
+      try {
+        await assert.rejects(() => command.run(), /command error/);
+      } finally {
+        console.log = origLog;
+      }
+
+      const output = logged.join('\n');
+      assert.ok(
+        /authorization rejection/i.test(output),
+        'should explain it is an authorization rejection'
+      );
+      assert.ok(
+        /product profile|Deployment Manager/i.test(output),
+        'should name the missing product profile / role cause'
+      );
+      assert.ok(
+        output.includes('/adobe/experimental/compute*'),
+        'should name the deploy API path to exclude'
+      );
+      assert.ok(/cdn/i.test(output), 'should mention the CDN configuration');
+      assert.ok(
+        command.error.calledWith(sinon.match(/request-id: trace-abc-123/)),
+        'should include the request-id in the error'
+      );
+    });
+
     it('falls back to HTTP status when JSON parse fails', async () => {
       mockFetch.resolves({
         ok: false,

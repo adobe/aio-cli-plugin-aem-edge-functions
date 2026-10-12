@@ -1,5 +1,15 @@
 # Changelog
 
+## [1.0.6] - 2026-10-13
+
+### Changed
+
+- `deploy` and `info --debug`: on an ADC (OAuth Server-to-Server) authentication failure, report the real cause — the IMS `error` / `error_description`, or for an API-level 401/403 a missing product profile/role (AEM Author Administrator or Cloud Manager Deployment Manager) or a CDN access rule blocking the deploy path — and include the request-id for log correlation. In that failure case, `info --debug` additionally prints local credential checks and a secret-redacted `curl` to reproduce the IMS call.
+
+### Fixed
+
+- ADC token-exchange errors are no longer swallowed and masked by a silent fallback to an interactive IMS token that failed later with a generic `HTTP 403`.
+
 ## [1.0.5] - 2026-09-25
 
 ### Added

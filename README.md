@@ -144,6 +144,7 @@ In debug mode, the command additionally displays:
 - All active `AEM_EDGE_FUNCTIONS_*` environment variables
 - Edge Functions API endpoint
 - API connectivity test with token type and HTTP status
+- If that connectivity test fails because ADC (OAuth Server-to-Server) authentication could not obtain a token, a detailed, secret-free diagnosis instead of a generic error: the IMS `error` / `error_description` (or a missing-config / network detail), the likely cause and fix (for example a missing product profile/role, or a CDN access rule blocking the deploy API path), the request-id, and a redacted `curl` to reproduce the IMS token call
 - Table of deployed Edge Functions with their debug domain URLs (Warning: The debug URL is only for debugging, do not use it in production as it can change at any time.)
 
 ### Batch Mode

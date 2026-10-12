@@ -105,6 +105,9 @@ class BaseCommand extends Command {
   CONFIG_ADC_CLIENT_SECRET = 'edgefunctions_adc_client_secret';
   CONFIG_ADC_SCOPES = 'edgefunctions_adc_scopes';
 
+  // IMS token endpoint used for the OAuth Server-to-Server (client_credentials) exchange.
+  IMS_TOKEN_ENDPOINT = 'https://ims-na1.adobelogin.com/ims/token/v3';
+
   /**
    * Parse an ADC config JSON object, auto-detecting the format:
    * - Full format: { project: { ... } } — downloaded from ADC project page
@@ -249,24 +252,32 @@ class BaseCommand extends Command {
   }
 
   /**
-   * Get access token using ADC OAuth Server-to-Server credentials
-   * @returns {Promise<Object|null>} Token and API key or null
+   * Get access token using ADC OAuth Server-to-Server credentials.
+   *
+   * On failure this throws an Error annotated with a structured `.adcAuth` detail
+   * object (and caches it on `this._lastAdcAuthError`) instead of silently returning
+   * null, so callers and `info --debug` can report the real cause. The detail object
+   * never contains secret material.
+   * @returns {Promise<Object>} Token and API key
    */
   async getAdcToken() {
     const clientId = this.getConfig(this.CONFIG_ADC_CLIENT_ID);
     const clientSecret = this.getConfig(this.CONFIG_ADC_CLIENT_SECRET);
     const scopes = this.getConfig(this.CONFIG_ADC_SCOPES);
 
-    if (!clientId || !clientSecret || !scopes) {
-      return null;
+    const missing = [];
+    if (!clientId) missing.push('Client ID');
+    if (!clientSecret) missing.push('Client Secret');
+    if (!scopes) missing.push('Scopes');
+    if (missing.length > 0) {
+      throw this.makeAdcAuthError('ADC credentials are incomplete', {
+        kind: 'config',
+        missing
+      });
     }
 
-    // Exchange OAuth credentials for access token via IMS (no ADC API call needed)
+    // Exchange OAuth credentials for access token via IMS (no ADC API call needed).
     const accessToken = await this.exchangeOAuthForToken(clientId, clientSecret, scopes);
-
-    if (!accessToken) {
-      return null;
-    }
 
     return {
       accessToken,
@@ -277,18 +288,33 @@ class BaseCommand extends Command {
   }
 
   /**
-   * Exchange OAuth credentials for an access token
+   * Resolve the fetch implementation used for the IMS token exchange.
+   * Exposed as a method so it can be overridden in tests.
+   * @returns {Function} fetch
+   */
+  getFetch() {
+    return createFetch();
+  }
+
+  /**
+   * Exchange OAuth Server-to-Server credentials for an access token via IMS.
+   *
+   * Never swallows the IMS response: on any failure it throws an Error annotated with
+   * a structured `.adcAuth` detail object describing exactly what went wrong (network
+   * vs. HTTP, status, IMS `error`/`error_description`, raw body). The detail is also
+   * cached on `this._lastAdcAuthError`. No secret material is captured.
    * @param {string} clientId OAuth client ID
    * @param {string} clientSecret OAuth client secret
    * @param {Array|string} scopes OAuth scopes (array or comma-separated string)
-   * @returns {Promise<string|null>} Access token or null
+   * @returns {Promise<string>} Access token
    */
   async exchangeOAuthForToken(clientId, clientSecret, scopes) {
-    try {
-      const fetch = createFetch();
-      const scopeString = Array.isArray(scopes) ? scopes.join(',') : scopes || '';
+    const scopeString = Array.isArray(scopes) ? scopes.join(',') : scopes || '';
+    const fetch = this.getFetch();
 
-      const response = await fetch('https://ims-na1.adobelogin.com/ims/token/v3', {
+    let response;
+    try {
+      response = await fetch(this.IMS_TOKEN_ENDPOINT, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
@@ -300,18 +326,200 @@ class BaseCommand extends Command {
           scope: scopeString
         }).toString()
       });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Failed to get access token: ${response.status} ${errorText}`);
-      }
-
-      const data = await response.json();
-      return data.access_token;
     } catch (error) {
-      ux.warn(`Failed to exchange OAuth credentials: ${error.message}`);
-      return null;
+      // Network / DNS / TLS / proxy failure before any HTTP response from IMS.
+      throw this.makeAdcAuthError('Could not reach the IMS token endpoint', {
+        kind: 'network',
+        imsEndpoint: this.IMS_TOKEN_ENDPOINT,
+        cause: error.message
+      });
     }
+
+    if (!response.ok) {
+      const raw = await response.text().catch(() => '');
+      let imsError;
+      let imsErrorDescription;
+      try {
+        const parsed = JSON.parse(raw);
+        imsError = parsed.error;
+        imsErrorDescription = parsed.error_description;
+      } catch {
+        // IMS returned a non-JSON body; keep the raw text for reporting.
+      }
+      throw this.makeAdcAuthError('IMS rejected the client_credentials token request', {
+        kind: 'ims',
+        imsEndpoint: this.IMS_TOKEN_ENDPOINT,
+        status: response.status,
+        error: imsError,
+        errorDescription: imsErrorDescription,
+        raw: raw ? String(raw).slice(0, 2000) : ''
+      });
+    }
+
+    let data;
+    try {
+      data = await response.json();
+    } catch (error) {
+      throw this.makeAdcAuthError('IMS returned a token response that could not be parsed', {
+        kind: 'ims',
+        imsEndpoint: this.IMS_TOKEN_ENDPOINT,
+        status: response.status,
+        cause: error.message
+      });
+    }
+
+    if (!data.access_token) {
+      throw this.makeAdcAuthError('IMS response did not contain an access_token', {
+        kind: 'ims',
+        imsEndpoint: this.IMS_TOKEN_ENDPOINT,
+        status: response.status,
+        raw: JSON.stringify(data).slice(0, 2000)
+      });
+    }
+
+    this._lastAdcAuthError = null;
+    return data.access_token;
+  }
+
+  /**
+   * Build an Error annotated with a structured `.adcAuth` detail object and cache it
+   * on `this._lastAdcAuthError`. The detail never contains secret material.
+   * @param {string} message Short human-readable message
+   * @param {Object} detail Structured detail ({ kind, ... })
+   * @returns {Error}
+   */
+  makeAdcAuthError(message, detail) {
+    const summary = this.summarizeAdcAuthDetail(detail);
+    const error = new Error(summary ? `${message}: ${summary}` : message);
+    error.name = 'AdcAuthError';
+    error.adcAuth = detail;
+    this._lastAdcAuthError = detail;
+    return error;
+  }
+
+  /**
+   * One-line, secret-free summary of a structured ADC auth detail.
+   * @param {Object} detail
+   * @returns {string}
+   */
+  summarizeAdcAuthDetail(detail) {
+    if (!detail) return '';
+    if (detail.kind === 'config') {
+      return `local ADC credentials incomplete (missing ${detail.missing.join(', ')})`;
+    }
+    if (detail.kind === 'network') {
+      return `could not reach ${detail.imsEndpoint} (${detail.cause})`;
+    }
+    const parts = [];
+    if (detail.status) parts.push(`HTTP ${detail.status}`);
+    const code = [detail.error, detail.errorDescription].filter(Boolean).join(': ');
+    if (code) parts.push(code);
+    else if (detail.cause) parts.push(detail.cause);
+    else if (detail.raw) parts.push(detail.raw);
+    return parts.join(' ');
+  }
+
+  /**
+   * Targeted, actionable remediation hints for an ADC auth failure (no secrets).
+   * @param {Object} detail Structured ADC auth detail
+   * @returns {string[]} Hint lines
+   */
+  adcAuthHints(detail) {
+    if (!detail) return [];
+    if (detail.kind === 'config') {
+      return [
+        `Local ADC credentials are incomplete (missing ${detail.missing.join(', ')}).`,
+        'Re-run `aio aem edge-functions setup` and re-select the Developer Console project/credential.'
+      ];
+    }
+    if (detail.kind === 'network') {
+      return [
+        `Could not reach the IMS token endpoint (${detail.imsEndpoint}).`,
+        'Check network connectivity, VPN, corporate proxy (HTTPS_PROXY) and any TLS interception.'
+      ];
+    }
+    switch (detail.error) {
+      case 'invalid_client':
+        return [
+          'IMS rejected the client_id/client_secret pair (invalid_client).',
+          'The client secret is likely wrong, rotated, or the credential/technical account was disabled.',
+          'Fix: in Adobe Developer Console, open the OAuth Server-to-Server credential, generate a new client secret, then re-run `aio aem edge-functions setup`.',
+          'If a freshly generated secret ALSO fails, the technical account or its org/product-profile entitlement likely changed - ask an org admin to verify it.'
+        ];
+      case 'invalid_scope':
+        return [
+          'IMS rejected one or more requested scopes (invalid_scope).',
+          'The credential may have lost an API/product entitlement, or a requested scope is not grantable to this Server-to-Server credential.',
+          'Fix: in Developer Console, confirm the project still has the required APIs added and the technical account is in the matching product profiles.'
+        ];
+      case 'invalid_grant':
+        return [
+          'IMS rejected the grant (invalid_grant).',
+          'The credential may be disabled or is not an OAuth Server-to-Server credential.',
+          'Fix: confirm the credential type is "OAuth Server-to-Server" and re-run `aio aem edge-functions setup`.'
+        ];
+      case 'access_denied':
+        return [
+          'IMS denied access for this credential (access_denied).',
+          'This usually indicates a missing org entitlement or product profile for the technical account.',
+          'Fix: ask an org admin to verify the technical account org membership and product profiles.'
+        ];
+      default:
+        return [
+          detail.status
+            ? `IMS returned HTTP ${detail.status}${detail.error ? ` (${detail.error})` : ''}.`
+            : 'IMS returned an unexpected response.',
+          'Validate the credential directly against IMS (see the reproduction command) and verify the Developer Console credential and org entitlements.'
+        ];
+    }
+  }
+
+  /**
+   * A copy-pasteable curl command that reproduces the IMS client_credentials call,
+   * with the secret redacted. Useful for remote debugging with customer reps.
+   * @param {string} clientId OAuth client ID
+   * @param {Array|string} scopes OAuth scopes
+   * @returns {string}
+   */
+  buildAdcTokenCurl(clientId, scopes) {
+    const scopeString = Array.isArray(scopes) ? scopes.join(',') : scopes || '';
+    return [
+      `curl -s -X POST "${this.IMS_TOKEN_ENDPOINT}" \\`,
+      '  -H "Content-Type: application/x-www-form-urlencoded" \\',
+      '  -d "grant_type=client_credentials" \\',
+      `  -d "client_id=${clientId || '<CLIENT_ID>'}" \\`,
+      '  --data-urlencode "client_secret=<YOUR_CLIENT_SECRET>" \\',
+      `  --data-urlencode "scope=${scopeString || '<SCOPES>'}"`
+    ].join('\n');
+  }
+
+  /**
+   * Multi-line, secret-free explanation of an ADC auth error combining the structured
+   * detail with targeted remediation hints. Suitable for logs and `info --debug`.
+   * @param {Error} error Error thrown by getAdcToken/exchangeOAuthForToken
+   * @returns {string}
+   */
+  formatAdcAuthError(error) {
+    const detail = error?.adcAuth || this._lastAdcAuthError;
+    const lines = [];
+    if (detail && detail.kind === 'ims') {
+      lines.push(`IMS endpoint:   ${detail.imsEndpoint}`);
+      if (detail.status) lines.push(`HTTP status:    ${detail.status}`);
+      if (detail.error) lines.push(`IMS error:      ${detail.error}`);
+      if (detail.errorDescription) lines.push(`Description:    ${detail.errorDescription}`);
+      if (!detail.error && detail.raw) lines.push(`IMS response:   ${detail.raw}`);
+    } else if (detail && detail.kind === 'network') {
+      lines.push(`IMS endpoint:   ${detail.imsEndpoint}`);
+      lines.push(`Network error:  ${detail.cause}`);
+    } else if (detail && detail.kind === 'config') {
+      lines.push(`Missing config: ${detail.missing.join(', ')}`);
+    } else if (error) {
+      lines.push(error.message);
+    }
+    for (const hint of this.adcAuthHints(detail)) {
+      lines.push(`- ${hint}`);
+    }
+    return lines.join('\n');
   }
 
   spinnerStart(message) {
@@ -399,16 +607,18 @@ class BaseCommand extends Command {
       if (adcConfigured) {
         try {
           const adcToken = await this.getAdcToken();
-          if (adcToken) {
-            accessToken = adcToken.accessToken;
-          } else {
-            ux.warn('Failed to get ADC token, falling back to IMS token');
-            const tokenResult = await this.getTokenAndKey();
-            accessToken = tokenResult?.accessToken;
-            isStage = tokenResult?.data?.env === 'stage' || isStage;
-          }
+          accessToken = adcToken.accessToken;
         } catch (error) {
-          ux.warn(`Failed to get ADC token: ${error.message}, falling back to IMS token`);
+          // getAdcToken throws an AdcAuthError with structured detail; surface the real
+          // cause instead of a generic message, then fall back to an interactive IMS token.
+          const summary =
+            this.summarizeAdcAuthDetail(error.adcAuth || this._lastAdcAuthError) || error.message;
+          ux.warn(`ADC Server-to-Server token retrieval failed: ${summary}`);
+          ux.warn(
+            'Falling back to an interactive IMS token. If that token lacks the required ' +
+              'entitlement the command may still fail with HTTP 403. ' +
+              'Run `aio aem edge-functions info --debug` for a full diagnosis.'
+          );
           const tokenResult = await this.getTokenAndKey();
           accessToken = tokenResult?.accessToken;
           isStage = tokenResult?.data?.env === 'stage' || isStage;
