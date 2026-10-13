@@ -208,6 +208,28 @@ class DeployCommand extends BaseCommand {
       }
       const requestId = response.headers?.get('x-request-id');
       const requestIdInfo = requestId ? ` (request-id: ${requestId})` : '';
+
+      // A 401/403 here is an API-level authorization rejection: the request reached the CDN API but was
+      // denied. Two easily-missed causes: (1) the deploy credential lacks the required product profile /
+      // role (AEM Author Administrator, or Cloud Manager Deployment Manager); (2) the environment's OWN CDN
+      // configuration locks the author tier (e.g. an IP allowlist / edge authenticator) and gates the
+      // deploy API path. Surface both.
+      if (response.status === 401 || response.status === 403) {
+        console.log(
+          chalk.yellow(
+            `\nThis is an authorization rejection (HTTP ${response.status}). Common causes:\n` +
+              '  - The deploy credential is missing the required product profile / role: the ADC\n' +
+              '    technical account needs the AEM Author Administrator product profile (on the author\n' +
+              '    instance for this environment) OR the Cloud Manager Deployment Manager role. NB this is\n' +
+              '    the DEPLOY identity only - it is not inherited by the running edge function.\n' +
+              "  - The environment's CDN configuration has an author-tier access/authentication rule\n" +
+              '    (e.g. an IP allowlist) that blocks the deploy API path /adobe/experimental/compute* -\n' +
+              '    exclude that path from the rule (like /systemready) and re-run the config pipeline.\n' +
+              'Use the request-id below to correlate in Splunk (sourcetype=cdn, rules: match=<rule-name>).\n' +
+              'Run `aio aem edge-functions info --debug` for a full diagnosis.'
+          )
+        );
+      }
       this.error(`Failed to deploy '${edgeFunctionName}': ${errorMessage}${requestIdInfo}`);
     }
 

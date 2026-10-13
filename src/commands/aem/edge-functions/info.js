@@ -294,25 +294,11 @@ class InfoCommand extends BaseCommand {
               if (adcConfigured) {
                 try {
                   const adcToken = await this.getAdcToken();
-                  if (adcToken) {
-                    accessToken = adcToken.accessToken;
-                    tokenType = 'ADC OAuth';
-                  } else {
-                    console.log(
-                      `API Status:             ${chalk.red('✗ ADC token retrieval failed')}`
-                    );
-                    console.log(
-                      chalk.red(
-                        '  getAdcToken() returned null — check Client ID, Secret and Scopes above.'
-                      )
-                    );
-                    return;
-                  }
+                  accessToken = adcToken.accessToken;
+                  tokenType = 'ADC OAuth';
                 } catch (error) {
-                  console.log(
-                    `API Status:             ${chalk.red('✗ ADC token retrieval failed')}`
-                  );
-                  console.log(chalk.red(`  ${error.message}`));
+                  this.spinnerStop();
+                  this.printAdcTokenFailure(error);
                   return;
                 }
               } else if (!this.flags.batch) {
@@ -402,6 +388,21 @@ class InfoCommand extends BaseCommand {
                   console.log(
                     `API Status:             ${chalk.red('✗ Authentication failed')} (HTTP ${response.status})`
                   );
+                  console.log(
+                    chalk.yellow(
+                      '  A token was obtained but the API rejected it (authorization, HTTP ' +
+                        `${response.status}). Common causes:\n` +
+                        '    - the deploy credential lacks the required product profile / role: the ADC\n' +
+                        '      technical account needs the AEM Author Administrator product profile (on the\n' +
+                        '      author instance for this environment) OR the Cloud Manager Deployment Manager\n' +
+                        '      role (this is the deploy identity only; it is not inherited by the running function);\n' +
+                        '    - the requested scopes do not grant access to the Edge Functions API;\n' +
+                        '    - the environment CDN config has an author-tier access/authentication rule\n' +
+                        '      (e.g. an IP allowlist) blocking the deploy API path /adobe/experimental/compute*\n' +
+                        '      - check cdn.yaml and exclude that path (like /systemready).\n' +
+                        '  Use the Request ID below to correlate in Splunk (sourcetype=cdn, rules: match=<rule-name>).'
+                    )
+                  );
                 } else if (response.status === 404) {
                   console.log(
                     `API Status:             ${chalk.red('✗ Endpoint not found')} (HTTP 404)`
@@ -434,6 +435,75 @@ class InfoCommand extends BaseCommand {
       this.spinnerStop();
       throw err;
     }
+  }
+
+  /**
+   * Print a thorough, secret-free diagnosis of an ADC Server-to-Server token failure.
+   * Intended for `info --debug` so the output can be shared verbatim when debugging
+   * remotely with customer representatives.
+   * @param {Error} error Error thrown by getAdcToken/exchangeOAuthForToken
+   */
+  printAdcTokenFailure(error) {
+    const detail = error.adcAuth || this._lastAdcAuthError;
+    const clientId = this.getConfig(this.CONFIG_ADC_CLIENT_ID);
+    const clientSecret = this.getConfig(this.CONFIG_ADC_CLIENT_SECRET);
+    const scopes = this.getConfig(this.CONFIG_ADC_SCOPES);
+
+    console.log(`API Status:             ${chalk.red('✗ ADC token retrieval failed')}`);
+    console.log(`Token Type:             ${chalk.cyan('ADC OAuth (Server-to-Server)')}`);
+
+    // Local credential checks (secrets stay redacted).
+    const scopeCount = scopes ? String(scopes).split(',').filter(Boolean).length : 0;
+    console.log(chalk.bold('\nLocal credential checks:'));
+    console.log(`  Client ID present:     ${clientId ? chalk.green('yes') : chalk.red('no')}`);
+    console.log(`  Client Secret present: ${clientSecret ? chalk.green('yes') : chalk.red('no')}`);
+    console.log(
+      `  Scopes present:        ${scopes ? chalk.green(`yes (${scopeCount} scope${scopeCount === 1 ? '' : 's'})`) : chalk.red('no')}`
+    );
+
+    // IMS token exchange detail.
+    console.log(chalk.bold('\nIMS token exchange:'));
+    if (detail && detail.kind === 'ims') {
+      console.log(`  IMS endpoint:          ${chalk.cyan(detail.imsEndpoint)}`);
+      console.log(`  HTTP status:           ${chalk.yellow(detail.status || 'n/a')}`);
+      if (detail.error) console.log(`  IMS error:             ${chalk.red(detail.error)}`);
+      if (detail.errorDescription)
+        console.log(`  Description:           ${chalk.red(detail.errorDescription)}`);
+      if (!detail.error && detail.raw)
+        console.log(`  IMS response:          ${chalk.red(detail.raw)}`);
+      if (detail.cause) console.log(`  Cause:                 ${chalk.red(detail.cause)}`);
+    } else if (detail && detail.kind === 'network') {
+      console.log(`  IMS endpoint:          ${chalk.cyan(detail.imsEndpoint)}`);
+      console.log(`  Network error:         ${chalk.red(detail.cause)}`);
+    } else if (detail && detail.kind === 'config') {
+      console.log(`  Missing config:        ${chalk.red(detail.missing.join(', '))}`);
+    } else {
+      console.log(`  ${chalk.red(error.message)}`);
+    }
+
+    // Targeted remediation hints.
+    const hints = this.adcAuthHints(detail);
+    if (hints.length > 0) {
+      console.log(chalk.bold('\nLikely cause & fix:'));
+      for (const hint of hints) {
+        console.log(`  ${chalk.yellow('-')} ${hint}`);
+      }
+    }
+
+    // Copy-pasteable reproduction (secret redacted) for remote debugging.
+    console.log(chalk.bold('\nReproduce the IMS call directly (secret redacted):'));
+    const curl = this.buildAdcTokenCurl(clientId, scopes)
+      .split('\n')
+      .map((line) => `  ${line}`)
+      .join('\n');
+    console.log(chalk.dim(curl));
+    console.log(
+      chalk.dim(
+        '\n  The output above contains no secrets and is safe to share when escalating.\n' +
+          '  A 200 with an access_token means the credential is valid; invalid_client/invalid_scope\n' +
+          '  points at the credential itself or its Developer Console / org entitlements.'
+      )
+    );
   }
 }
 
