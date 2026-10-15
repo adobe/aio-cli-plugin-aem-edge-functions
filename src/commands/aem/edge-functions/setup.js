@@ -915,7 +915,7 @@ class SetupCommand extends BaseCommand {
   /**
    * Read and parse the ADC config file from the --adc-config flag.
    * Supports both the full ADC project format and the credentials-only format.
-   * @returns {Object|null} Parsed ADC credentials or null if flag not provided
+   * @returns {object | null} Parsed ADC credentials or null if flag not provided
    */
   readAdcProjectFile() {
     const filePath = this.flags?.['adc-config'];
