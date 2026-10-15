@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.0] - 2026-10-15
+
+### Changed
+
+- Dropped Node.js 18 support. Requires Node.js 20.19+, 22.15+, or 24.10+ within those major versions.
+- Updated dependencies and resolved reported dependency security vulnerabilities.
+
 ## [1.0.5] - 2026-09-25
 
 ### Added
