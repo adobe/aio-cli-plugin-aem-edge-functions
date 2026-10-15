@@ -64,7 +64,10 @@
   ],
   "license": "Apache-2.0",
   "overrides": {
-    "uuid": "^14.0.0"
+    "uuid": "^14.0.0",
+    "@istanbuljs/load-nyc-config": {
+      "js-yaml": "4.3.2"
+    }
   },
   "oclif": {
     "commands": "./src/commands",
