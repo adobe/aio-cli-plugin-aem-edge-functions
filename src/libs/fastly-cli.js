@@ -51,7 +51,7 @@ const ANSI_RE = /\x1b\[[0-9;]*m/g;
  * Fastly CLI prints each spinner frame as a separate line, e.g.
  * "| Uploading package..." or "/ Activating service (version 31)...".
  */
-const SPINNER_FRAME_RE = /^[|/\\\-] .+\.\.\.$/;
+const SPINNER_FRAME_RE = /^[|/\\-] .+\.\.\.$/;
 
 function stripAnsi(str) {
   return str.replace(ANSI_RE, '');

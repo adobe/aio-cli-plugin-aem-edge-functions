@@ -21,10 +21,10 @@
     "ora-classic": "5.4.2"
   },
   "devDependencies": {
-    "@adobe/eslint-config-aio-lib-config": "4.0.0",
+    "@adobe/eslint-config-aio-lib-config": "5.0.0",
     "@inquirer/testing": "2.1.53",
-    "eslint": "8.57.1",
-    "eslint-config-prettier": "9.1.2",
+    "eslint": "9.39.5",
+    "eslint-config-prettier": "10.1.8",
     "eslint-plugin-prettier": "5.5.5",
     "husky": "8.0.3",
     "mocha": "12.0.0-beta-10",
@@ -41,7 +41,7 @@
     "url": "git+https://github.com/adobe/aio-cli-plugin-aem-edge-functions.git"
   },
   "scripts": {
-    "test": "nyc --all --exclude 'eslint_rules/*' --exclude 'coverage/*' --exclude 'src/index.js' --exclude 'test/*' --reporter=text --reporter=html mocha 'test/**/*.test.js'",
+    "test": "nyc --all --exclude 'eslint_rules/*' --exclude 'eslint.config.js' --exclude 'coverage/*' --exclude 'src/index.js' --exclude 'test/*' --reporter=text --reporter=html mocha 'test/**/*.test.js'",
     "prepare": "husky install",
     "lint": "eslint --fix --ext .js",
     "lint-all": "eslint --fix --ext .js,.jsx .",

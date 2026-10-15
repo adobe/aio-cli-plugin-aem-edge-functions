@@ -39,6 +39,7 @@ class DeployCommand extends BaseCommand {
       required: true
     })
   };
+
   static flags = {
     debug: Flags.boolean({
       char: 'd',
