@@ -52,6 +52,10 @@ const ADC_CONFIG_KEY_MAP = {
 
 let _adcConfigCache; // undefined = not yet parsed, null = parsed but absent/invalid
 
+/**
+ * Parse and cache ADC credentials from the environment.
+ * @returns {object|null} Normalized configuration, or null if absent or invalid.
+ */
 function parseAdcConfigEnv() {
   if (_adcConfigCache !== undefined) return _adcConfigCache;
   const raw = process.env.AEM_EDGE_FUNCTIONS_ADC_CONFIG;
@@ -81,6 +85,11 @@ const BOOLEAN_CONFIGS = new Set([
   'edgefunctions_adc_configured'
 ]);
 
+/**
+ * Normalize supported boolean configuration values.
+ * @param {unknown} value Raw configuration value.
+ * @returns {boolean|undefined} Parsed boolean, or undefined for unsupported values.
+ */
 function parseBool(value) {
   if (value === undefined || value === null) return undefined;
   if (typeof value === 'boolean') return value;
@@ -112,6 +121,8 @@ class BaseCommand extends Command {
    *
    * Returns a normalized object: { format, orgId, projectId, workspaceId, clientId, clientSecret, scopes }
    * projectId and workspaceId are null in the credentials-only format.
+   * @param {unknown} json Parsed ADC project or credentials JSON.
+   * @returns {object|null} Normalized credentials, or null for an unsupported format.
    */
   static parseAdcConfigJson(json) {
     if (!json || typeof json !== 'object') return null;
@@ -204,6 +215,7 @@ class BaseCommand extends Command {
   /**
    * Get the IMS access token and API key from the configured context or the default one
    * This is used for Cloud Manager and ADC API calls (always uses IMS token)
+   * @returns {Promise<{accessToken: string, apiKey: string, local: boolean, data: object}>} IMS token and context.
    */
   async getTokenAndKey() {
     // Always use standard IMS token for Cloud Manager and ADC API calls
@@ -250,7 +262,7 @@ class BaseCommand extends Command {
 
   /**
    * Get access token using ADC OAuth Server-to-Server credentials
-   * @returns {Promise<Object|null>} Token and API key or null
+   * @returns {Promise<object | null>} Token and API key or null
    */
   async getAdcToken() {
     const clientId = this.getConfig(this.CONFIG_ADC_CLIENT_ID);
@@ -334,6 +346,7 @@ class BaseCommand extends Command {
    * Detect whether the CLI is configured for the Cloud Manager stage environment.
    * Checks AIO_CLI_ENV env var and aio config 'cli.env' / 'ims.contexts.cli.env'.
    * This does not require a token and works in batch mode.
+   * @returns {boolean} Whether a stage environment is configured.
    */
   isStageEnv() {
     if (process.env.AIO_CLI_ENV === 'stage') return true;
@@ -346,7 +359,7 @@ class BaseCommand extends Command {
 
   /**
    * Get the API base path for AEM Edge Functions (without the edge functions path suffix)
-   * @param {boolean} [stage=false] Whether to use the Cloud Manager stage domain suffix (-cmstg)
+   * @param {boolean} [stage] Whether to use the Cloud Manager stage domain suffix (-cmstg)
    * @returns {string|null} The computed base URL or null if configuration is incomplete
    */
   getApiBasePath(stage = false) {
@@ -373,7 +386,7 @@ class BaseCommand extends Command {
 
   /**
    * Get the API endpoint for AEM Edge Functions
-   * @param {boolean} [stage=false] Whether to use the Cloud Manager stage domain suffix (-cmstg)
+   * @param {boolean} [stage] Whether to use the Cloud Manager stage domain suffix (-cmstg)
    * @returns {string|null} The computed API endpoint or null if configuration is incomplete
    */
   getApiEndpoint(stage = false) {
@@ -387,7 +400,7 @@ class BaseCommand extends Command {
    * Get an access token and detect whether the environment is stage.
    * Tries (in order): AEM_EDGE_FUNCTIONS_TOKEN env var, ADC OAuth, IMS token.
    * Stage is detected from IMS context data when available, falling back to isStageEnv().
-   * @returns {Promise<{accessToken: string|null, isStage: boolean}>}
+   * @returns {Promise<{accessToken: string|undefined, isStage: boolean}>} Access token and detected stage environment.
    */
   async getAccessTokenAndStage() {
     let accessToken = process.env.AEM_EDGE_FUNCTIONS_TOKEN;

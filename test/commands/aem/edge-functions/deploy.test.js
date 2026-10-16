@@ -19,6 +19,10 @@ const { Readable } = require('stream');
 const networking = require('@adobe/aio-lib-core-networking');
 const DeployCommand = require('../../../../src/commands/aem/edge-functions/deploy');
 
+/**
+ * Create an empty stream for mocked package reads.
+ * @returns {Readable} Stream that immediately ends.
+ */
 function mockReadStream() {
   const s = new Readable({ read() {} });
   s.push(null);

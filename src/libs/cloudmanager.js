@@ -99,5 +99,5 @@ class Cloudmanager {
 }
 
 module.exports = {
-  Cloudmanager: Cloudmanager
+  Cloudmanager
 };

@@ -23,6 +23,7 @@ class TailLogsCommand extends BaseCommand {
       required: true
     })
   };
+
   static flags = {
     debug: Flags.boolean({
       char: 'd',

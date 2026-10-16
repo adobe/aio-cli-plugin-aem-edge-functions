@@ -39,6 +39,7 @@ class DeployCommand extends BaseCommand {
       required: true
     })
   };
+
   static flags = {
     debug: Flags.boolean({
       char: 'd',
@@ -241,6 +242,8 @@ class DeployCommand extends BaseCommand {
    * Confirm an over-limit deploy ("send anyway"). Returns true to proceed. --allow-oversize skips
    * the prompt (for CI); interactively, asks for confirmation (default no); non-interactively
    * without the flag, errors out so an oversize package never silently uploads in CI.
+   * @param {string} packageSizeMb Package size formatted in decimal megabytes.
+   * @returns {Promise<boolean>} Whether to proceed with the oversized deploy.
    */
   async confirmOversizeDeploy(packageSizeMb) {
     const limitMb = bytesToMb(PACKAGE_SIZE_LIMIT_BYTES);
@@ -290,6 +293,8 @@ class DeployCommand extends BaseCommand {
    * Built without `--include-source`, a package ships only bin/main.wasm + the
    * manifest, which cannot be debugged from its sources. Walks the tar headers the
    * same way computePackageHash does; returns true on the first src/ path seen.
+   * @param {string} tarGzPath Path to the compressed package.
+   * @returns {boolean} Whether the archive contains a source directory.
    */
   packageHasSource(tarGzPath) {
     const tar = zlib.gunzipSync(fs.readFileSync(tarGzPath));
@@ -313,6 +318,9 @@ class DeployCommand extends BaseCommand {
    * Compute the SHA-512 hash of a tar.gz package by hashing the concatenated contents
    * of all regular files inside the archive, sorted lexicographically by filename.
    * This matches the algorithm used by the CDN API to produce the `filesHash` field.
+   * @param {string} tarGzPath Path to the compressed package.
+   * @param {boolean} [debug] Whether to log archive contents.
+   * @returns {string} Hex-encoded SHA-512 hash of the package contents.
    */
   computePackageHash(tarGzPath, debug = false) {
     const tar = zlib.gunzipSync(fs.readFileSync(tarGzPath));

@@ -28,6 +28,11 @@ const bytesToMb = (bytes) => (bytes / 1_000_000).toFixed(1);
  * Returns 'over' (above the limit — Fastly rejects), 'warn' (in the warn band, up to and
  * including the limit) or 'ok'. Matches @fastly/cli's `pkgSize > MaxPackageSize` (100,000,000
  * bytes exactly is allowed).
+ * @param {number} bytes Compressed package size in bytes.
+ * @param {object} [options] Custom size thresholds.
+ * @param {number} [options.limit] Maximum allowed size in bytes; defaults to 100 MB.
+ * @param {number} [options.warn] Warning threshold in bytes; defaults to 90 MB.
+ * @returns {'over'|'warn'|'ok'} Size classification relative to the thresholds.
  */
 function classifyPackageSize(
   bytes,

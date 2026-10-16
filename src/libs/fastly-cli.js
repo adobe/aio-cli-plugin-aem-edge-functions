@@ -51,12 +51,22 @@ const ANSI_RE = /\x1b\[[0-9;]*m/g;
  * Fastly CLI prints each spinner frame as a separate line, e.g.
  * "| Uploading package..." or "/ Activating service (version 31)...".
  */
-const SPINNER_FRAME_RE = /^[|/\\\-] .+\.\.\.$/;
+const SPINNER_FRAME_RE = /^[|/\\-] .+\.\.\.$/;
 
+/**
+ * Strip ANSI color sequences before matching CLI output.
+ * @param {string} str CLI output text.
+ * @returns {string} Text without ANSI color sequences.
+ */
 function stripAnsi(str) {
   return str.replace(ANSI_RE, '');
 }
 
+/**
+ * Identify internal CLI messages and intermediate spinner frames.
+ * @param {string} line CLI output line.
+ * @returns {boolean} Whether to hide the line.
+ */
 function shouldFilterLine(line) {
   const plain = stripAnsi(line);
   return OUTPUT_FILTERS.some((pattern) => pattern.test(plain)) || SPINNER_FRAME_RE.test(plain);
@@ -66,6 +76,9 @@ function shouldFilterLine(line) {
  * Return fastly.toml contents with [scripts.build] set to `buildCmd` (replacing any existing
  * build line, else adding one, else creating a [scripts] table). Used on a throwaway COPY of the
  * manifest for an AOT build — the customer's fastly.toml is never modified.
+ * @param {string} toml Original fastly.toml contents.
+ * @param {string} buildCmd Replacement build command.
+ * @returns {string} Manifest contents with the updated build script.
  */
 function withBuildScript(toml, buildCmd) {
   const buildLine = `  build = "${buildCmd}"`;
@@ -97,6 +110,8 @@ function withBuildScript(toml, buildCmd) {
 /**
  * True if fastly.toml's [scripts.build] already enables AOT (`--enable-aot`). Used to respect a
  * committed AOT decision: when present, build the project as-is without modifying anything.
+ * @param {string} toml fastly.toml contents.
+ * @returns {boolean} Whether the build script enables AOT.
  */
 function buildScriptHasAot(toml) {
   const lines = toml.split('\n');
@@ -117,6 +132,7 @@ function buildScriptHasAot(toml) {
 /**
  * Warn (never block) if the freshly built package in `pkgDir` is at or near the Compute
  * compressed-package size limit. Inspects the most recently written .tar.gz.
+ * @param {string} pkgDir Directory containing built packages.
  */
 function warnOnPackageSize(pkgDir) {
   if (!fs.existsSync(pkgDir)) return;
@@ -152,6 +168,8 @@ function warnOnPackageSize(pkgDir) {
  * Colorize the output to restore the green checkmarks that the Fastly
  * CLI would normally emit when writing to a TTY.  The ✓ character
  * becomes green (\x1b[32m✓\x1b[0m) and SUCCESS: becomes bold green.
+ * @param {string} line CLI output line.
+ * @returns {string} Output with status colors restored.
  */
 function colorize(line) {
   const plain = stripAnsi(line);
@@ -169,6 +187,8 @@ function colorize(line) {
  * Filter a complete output string by removing lines that match
  * OUTPUT_FILTERS / SPINNER_FRAME_RE and collapsing excessive blank lines.
  * Also re-applies terminal colors lost due to piping.
+ * @param {string} data Complete CLI output.
+ * @returns {string} Filtered and colorized output.
  */
 function filterOutput(data) {
   const lines = data.split('\n');
@@ -212,6 +232,7 @@ class FastlyCli {
    * Must be 1-30 lowercase alphanumeric/hyphen chars, starting with a letter, not ending with a hyphen.
    * This limit ensures the resulting backend hostname stays within the 63-octet DNS label limit
    * per RFC 1035, Section 3.1.
+   * @param {string} serviceId Service name to validate.
    */
   ensureServiceIdIsSafe(serviceId) {
     const SERVICE_NAME_PATTERN = /^[a-z]([a-z0-9-]{0,28}[a-z0-9])?$/;
