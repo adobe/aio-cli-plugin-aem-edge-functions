@@ -15,7 +15,7 @@
     "@fastly/cli": "15.2.0",
     "@inquirer/prompts": "8.7.3",
     "@oclif/core": "4.11.11",
-    "chalk": "4.1.2",
+    "chalk": "6.0.1",
     "jsonwebtoken": "9.0.3",
     "open": "10.2.0",
     "ora-classic": "5.4.2"
