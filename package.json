@@ -17,7 +17,7 @@
     "@oclif/core": "4.11.11",
     "chalk": "4.1.2",
     "jsonwebtoken": "9.0.3",
-    "open": "10.2.0",
+    "open": "11.0.4",
     "ora-classic": "5.4.2"
   },
   "devDependencies": {
