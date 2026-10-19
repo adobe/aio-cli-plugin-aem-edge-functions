@@ -21,6 +21,7 @@ const { ux } = require('@oclif/core');
 const Config = require('@adobe/aio-lib-core-config');
 const FastlyCli = require('./fastly-cli');
 const { createFetch } = require('@adobe/aio-lib-core-networking');
+const { getUserAgent } = require('./user-agent');
 
 let spinner;
 
@@ -212,6 +213,10 @@ class BaseCommand extends Command {
     this.args = args;
   }
 
+  getUserAgent() {
+    return getUserAgent(this.config);
+  }
+
   /**
    * Get the IMS access token and API key from the configured context or the default one
    * This is used for Cloud Manager and ADC API calls (always uses IMS token)
@@ -303,6 +308,7 @@ class BaseCommand extends Command {
       const response = await fetch('https://ims-na1.adobelogin.com/ims/token/v3', {
         method: 'POST',
         headers: {
+          'User-Agent': this.getUserAgent(),
           'Content-Type': 'application/x-www-form-urlencoded'
         },
         body: new URLSearchParams({
@@ -440,7 +446,7 @@ class BaseCommand extends Command {
   async getFastlyCli() {
     const { accessToken, isStage } = await this.getAccessTokenAndStage();
     const apiEndpoint = this.getApiEndpoint(isStage);
-    return new FastlyCli(accessToken, apiEndpoint);
+    return new FastlyCli(accessToken, apiEndpoint, this.getUserAgent());
   }
 }
 

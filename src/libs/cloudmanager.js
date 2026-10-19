@@ -21,8 +21,9 @@ class Cloudmanager {
    * @param {string} apiKey the cloudmanager api key
    * @param {string} orgId the cloudmanager org id
    * @param {string} accessToken The bearer token used to authenticate requests to the API.
+   * @param {string} [userAgent] CLI and plugin request identity.
    */
-  constructor(cloudManagerUrl, apiKey, orgId, accessToken) {
+  constructor(cloudManagerUrl, apiKey, orgId, accessToken, userAgent) {
     const authorizationHeaders = {
       Authorization: `Bearer ${accessToken}`,
       accept: 'application/json'
@@ -32,7 +33,8 @@ class Cloudmanager {
       Object.assign(
         {
           'x-api-key': apiKey,
-          'x-gw-ims-org-id': orgId
+          'x-gw-ims-org-id': orgId,
+          ...(userAgent ? { 'User-Agent': userAgent } : {})
         },
         authorizationHeaders
       )

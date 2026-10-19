@@ -29,6 +29,14 @@ $ aio plugins:install @adobe/aio-cli-plugin-aem-edge-functions
 $ aio plugins:update
 ```
 
+# Request identification
+
+Requests made directly by this plugin include the running AIO CLI, plugin and Node.js versions in the
+`User-Agent` header, for example `aio/11.2.0 aio-cli-plugin-aem-edge-functions/1.1.0 node/24.10.0`.
+Fastly CLI API requests retain their existing user-agent and append this identity.
+Standalone execution reports the plugin and Node.js versions because no AIO CLI host is running.
+This adds no separate telemetry requests or user identifiers.
+
 # Local Development
 
 ```

@@ -18,6 +18,7 @@ const fs = require('fs');
 const { Readable } = require('stream');
 const networking = require('@adobe/aio-lib-core-networking');
 const DeployCommand = require('../../../../src/commands/aem/edge-functions/deploy');
+const { getUserAgent } = require('../../../../src/libs/user-agent');
 
 /**
  * Create an empty stream for mocked package reads.
@@ -36,7 +37,7 @@ describe('DeployCommand', () => {
 
   beforeEach(() => {
     sandbox = sinon.createSandbox();
-    command = new DeployCommand([], {});
+    command = new DeployCommand([], { name: '@adobe/aio-cli', version: '11.2.0' });
     command.flags = { debug: false, legacy: false };
     command.args = { serviceId: 'my-function' };
     command.error = sandbox.stub().throws(new Error('command error'));
@@ -325,6 +326,9 @@ describe('DeployCommand', () => {
       const [url, opts] = mockFetch.firstCall.args;
       assert.strictEqual(url, 'https://example.com/cdn/edgeFunctions/my-function/packages');
       assert.strictEqual(opts.method, 'POST');
+      assert.strictEqual(opts.headers['User-Agent'], getUserAgent(command.config));
+      assert.ok(opts.headers['content-type'].startsWith('multipart/form-data; boundary='));
+      assert.ok(opts.headers['Content-Length'] > 0);
       assert.ok(opts.headers.Authorization, 'Bearer test-token');
     });
 
@@ -503,8 +507,10 @@ describe('DeployCommand', () => {
 
       await command.fetchEdgeFunction('my-fn', 'https://example.com/cdn', 'test-token');
 
-      const [url] = mockFetch.firstCall.args;
+      const [url, opts] = mockFetch.firstCall.args;
       assert.strictEqual(url, 'https://example.com/cdn/edgeFunctions/my-fn');
+      assert.strictEqual(opts.headers['User-Agent'], getUserAgent(command.config));
+      assert.strictEqual(opts.headers.Authorization, 'Bearer test-token');
     });
 
     it('returns null when the response is not ok', async () => {

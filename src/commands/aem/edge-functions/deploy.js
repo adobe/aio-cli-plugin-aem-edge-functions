@@ -189,6 +189,7 @@ class DeployCommand extends BaseCommand {
       response = await fetch(url, {
         method: 'POST',
         headers: {
+          'User-Agent': this.getUserAgent(),
           ...form.getHeaders(),
           'Content-Length': form.getLengthSync(),
           Authorization: `Bearer ${accessToken}`
@@ -279,7 +280,10 @@ class DeployCommand extends BaseCommand {
     try {
       const fetch = networking.createFetch();
       const res = await fetch(`${basePath}/edgeFunctions/${edgeFunctionName}`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
+        headers: {
+          'User-Agent': this.getUserAgent(),
+          Authorization: `Bearer ${accessToken}`
+        }
       });
       if (!res.ok) return null;
       return await res.json();

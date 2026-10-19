@@ -26,7 +26,7 @@ class ServeCommand extends BaseCommand {
   };
 
   async run() {
-    const fastly = new FastlyCli();
+    const fastly = new FastlyCli(undefined, undefined, this.getUserAgent());
     await fastly.serve({ watch: this.flags.watch });
   }
 }
