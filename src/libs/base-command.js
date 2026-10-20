@@ -14,7 +14,7 @@
 
 const ora = require('ora-classic');
 const jwt = require('jsonwebtoken');
-const chalk = require('chalk');
+const chalk = require('chalk').default;
 const { context, getToken } = require('@adobe/aio-lib-ims');
 const { Command } = require('@oclif/core');
 const { ux } = require('@oclif/core');
