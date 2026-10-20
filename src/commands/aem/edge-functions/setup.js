@@ -438,7 +438,13 @@ class SetupCommand extends BaseCommand {
       if (!orgId) {
         throw new Error('Organization ID is not set. Please run the setup command to set it.');
       }
-      this._cloudmanager = new Cloudmanager(`${cloudManagerUrl}/api`, apiKey, orgId, accessToken);
+      this._cloudmanager = new Cloudmanager(
+        `${cloudManagerUrl}/api`,
+        apiKey,
+        orgId,
+        accessToken,
+        this.getUserAgent()
+      );
     }
     return fn(this._cloudmanager);
   }

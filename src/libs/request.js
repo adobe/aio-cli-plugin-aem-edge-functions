@@ -12,6 +12,7 @@
 
 const { createFetch } = require('@adobe/aio-lib-core-networking');
 const FormData = require('form-data');
+const { getUserAgent } = require('./user-agent');
 const fetch = createFetch();
 
 class Request {
@@ -23,7 +24,7 @@ class Request {
    */
   constructor(url, headers = {}) {
     this._baseUrl = url;
-    this._headers = headers;
+    this._headers = { 'User-Agent': getUserAgent(), ...headers };
   }
 
   async get(path, body) {

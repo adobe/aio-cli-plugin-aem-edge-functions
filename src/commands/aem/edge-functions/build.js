@@ -38,7 +38,7 @@ class BuildCommand extends BaseCommand {
   };
 
   async run() {
-    const fastly = new FastlyCli();
+    const fastly = new FastlyCli(undefined, undefined, this.getUserAgent());
     const save = this.flags['save-aot'];
     await fastly.build({ aot: this.flags.aot || save, saveAot: save });
   }

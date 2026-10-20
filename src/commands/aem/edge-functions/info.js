@@ -69,7 +69,8 @@ class InfoCommand extends BaseCommand {
             `${cloudManagerUrl}/api`,
             apiKey,
             orgId,
-            accessToken
+            accessToken,
+            this.getUserAgent()
           );
 
           // Fetch program name
@@ -325,7 +326,10 @@ class InfoCommand extends BaseCommand {
               this.spinnerStart('Testing API connectivity...');
               const response = await fetch(`${apiEndpoint}/edgeFunctions`, {
                 method: 'GET',
-                headers: { Authorization: `Bearer ${accessToken}` }
+                headers: {
+                  'User-Agent': this.getUserAgent(),
+                  Authorization: `Bearer ${accessToken}`
+                }
               });
               this.spinnerStop();
 
@@ -352,7 +356,10 @@ class InfoCommand extends BaseCommand {
                   try {
                     const efRes = await fetch(`${apiEndpoint}/edgeFunctions/${name}`, {
                       method: 'GET',
-                      headers: { Authorization: `Bearer ${accessToken}` }
+                      headers: {
+                        'User-Agent': this.getUserAgent(),
+                        Authorization: `Bearer ${accessToken}`
+                      }
                     });
                     if (efRes.ok) {
                       const efBody = await efRes.json();

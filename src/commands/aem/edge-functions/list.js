@@ -48,6 +48,7 @@ class ListCommand extends BaseCommand {
     }
 
     const request = new Request(basePath, {
+      'User-Agent': this.getUserAgent(),
       Authorization: `Bearer ${accessToken}`
     });
 

@@ -71,7 +71,10 @@ class PackagesCommand extends BaseCommand {
       console.log(`Using API endpoint: ${basePath}${apiPath}`);
     }
 
-    const request = new Request(basePath, { Authorization: `Bearer ${accessToken}` });
+    const request = new Request(basePath, {
+      'User-Agent': this.getUserAgent(),
+      Authorization: `Bearer ${accessToken}`
+    });
     this.spinnerStart('Fetching packages...');
     let response;
     try {

@@ -15,6 +15,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { classifyPackageSize, bytesToMb, PACKAGE_SIZE_LIMIT_BYTES } = require('./package-size');
+const { getUserAgent } = require('./user-agent');
 
 /**
  * Patterns for lines that should be hidden from customers because they
@@ -207,7 +208,8 @@ function filterOutput(data) {
 }
 
 class FastlyCli {
-  constructor(token, apiEndpoint) {
+  constructor(token, apiEndpoint, userAgent = getUserAgent()) {
+    this.userAgent = userAgent;
     this.fastlyCliPath = null;
     this.apiToken = token ?? process.env.AEM_COMPUTE_TOKEN;
     this.apiEndpoint =
@@ -258,7 +260,10 @@ class FastlyCli {
     const env = {
       ...process.env,
       FASTLY_API_TOKEN: this.apiToken,
-      FASTLY_API_ENDPOINT: this.apiEndpoint
+      FASTLY_API_ENDPOINT: this.apiEndpoint,
+      FASTLY_USER_AGENT_EXTENSION: [process.env.FASTLY_USER_AGENT_EXTENSION, this.userAgent]
+        .filter(Boolean)
+        .join(', ')
     };
 
     if (!shouldFilter) {
