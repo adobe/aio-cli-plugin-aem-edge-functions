@@ -3,9 +3,19 @@
   "extends": ["config:recommended"],
   "packageRules": [
     {
-      "description": "Keep ESLint updates disabled until the Adobe shared config supports ESLint 10.",
+      "description": "Stay on ESLint 9 until the Adobe shared config supports ESLint 10.",
       "matchPackageNames": ["eslint"],
-      "enabled": false
+      "allowedVersions": "^9.0.0"
+    },
+    {
+      "description": "Stay on Chalk 5 to preserve Node 20 support.",
+      "matchPackageNames": ["chalk"],
+      "allowedVersions": "^5.0.0"
+    },
+    {
+      "description": "Stay on oclif core 4 to preserve Node 20 support.",
+      "matchPackageNames": ["@oclif/core"],
+      "allowedVersions": "^4.0.0"
     }
   ]
 }
