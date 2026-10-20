@@ -13,7 +13,7 @@
 'use strict';
 
 const BaseCommand = require('../../../libs/base-command');
-const chalk = require('chalk');
+const chalk = require('chalk').default;
 const { version } = require('../../../../package.json');
 
 const TOPIC = 'aem:edge-functions';

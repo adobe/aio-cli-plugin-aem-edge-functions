@@ -13,7 +13,7 @@
 'use strict';
 
 const BaseCommand = require('../../../libs/base-command');
-const chalk = require('chalk');
+const chalk = require('chalk').default;
 const { Flags } = require('@oclif/core');
 const { Cloudmanager } = require('../../../libs/cloudmanager');
 const { DeveloperConsole } = require('../../../libs/developer-console');

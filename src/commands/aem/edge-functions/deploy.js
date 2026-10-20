@@ -21,7 +21,7 @@ const { Args, Flags } = require('@oclif/core');
 const FormData = require('form-data');
 const networking = require('@adobe/aio-lib-core-networking');
 const ora = require('ora-classic');
-const chalk = require('chalk');
+const chalk = require('chalk').default;
 const inquirer = require('@inquirer/prompts');
 const {
   classifyPackageSize,
