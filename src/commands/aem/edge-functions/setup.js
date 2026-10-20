@@ -108,6 +108,9 @@ class SetupCommand extends BaseCommand {
         }
       } else {
         Config.set(this.CONFIG_ENVIRONMENT, selectedEnvironmentId, storeLocal);
+        if (storeLocal && Config.get(this.CONFIG_SITE_DOMAIN)) {
+          Config.delete(this.CONFIG_SITE_DOMAIN, storeLocal);
+        }
       }
 
       if (storeLocal && Config.get(this.CONFIG_SITE_DOMAIN_LEGACY)) {
