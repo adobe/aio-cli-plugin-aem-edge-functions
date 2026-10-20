@@ -1,4 +1,11 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended"]
+  "extends": ["config:recommended"],
+  "packageRules": [
+    {
+      "description": "Keep ESLint updates disabled until the Adobe shared config supports ESLint 10.",
+      "matchPackageNames": ["eslint"],
+      "enabled": false
+    }
+  ]
 }
