@@ -105,7 +105,7 @@ class DeveloperConsole {
   /**
    * Get project details including workspaces
    * @param {string} projectId the project id
-   * @returns {Promise<Object>} Project details
+   * @returns {Promise<object>} Project details
    */
   async getProject(projectId) {
     try {
@@ -197,7 +197,7 @@ class DeveloperConsole {
    * Get OAuth Server-to-Server credentials from workspace
    * @param {string} projectId the project id
    * @param {string} workspaceId the workspace id
-   * @returns {Promise<Object|null>} OAuth credentials metadata (without secret, without scopes)
+   * @returns {Promise<object | null>} OAuth credentials metadata (without secret, without scopes)
    */
   async getCredentials(projectId, workspaceId) {
     try {
@@ -227,7 +227,7 @@ class DeveloperConsole {
    * Get integration details
    * @param {string} orgId the organization id
    * @param {string} integrationId the integration id
-   * @returns {Promise<Object|null>} Integration details
+   * @returns {Promise<object | null>} Integration details
    */
   async getIntegration(orgId, integrationId) {
     try {
@@ -249,6 +249,7 @@ class DeveloperConsole {
   /**
    * Get the URL to view a project credential in Adobe Developer Console
    * @param {string} projectId the project id
+   * @param {string} workspaceId the workspace id
    * @param {string} credentialId the credential id
    * @returns {Promise<string>} URL to the OAuth Server-to-Server credential
    */

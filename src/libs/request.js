@@ -52,7 +52,7 @@ class Request {
 
   async request(method, path, body) {
     const url = `${this._baseUrl}${path}`;
-    let headers = { ...this._headers };
+    const headers = { ...this._headers };
     const options = {
       method,
       headers
@@ -69,5 +69,5 @@ class Request {
 }
 
 module.exports = {
-  Request: Request
+  Request
 };

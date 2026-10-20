@@ -15,28 +15,12 @@
 const ora = require('ora-classic');
 const jwt = require('jsonwebtoken');
 const chalk = require('chalk');
-const { confirm } = require('@inquirer/prompts');
 const { context, getToken } = require('@adobe/aio-lib-ims');
 const { Command } = require('@oclif/core');
 const { ux } = require('@oclif/core');
 const Config = require('@adobe/aio-lib-core-config');
 const FastlyCli = require('./fastly-cli');
 const { createFetch } = require('@adobe/aio-lib-core-networking');
-
-const BETA_NOTICE = `
-================================================================================
-  AEM Edge Functions — Public Beta
-
-  AEM Edge Functions is currently in public beta. It is primarily intended
-  for development and experimentation purposes.
-
-  Do not use in production without prior discussion with your Adobe
-  representative. You can email aemcs-edgecompute-feedback@adobe.com.
-
-  By continuing, you acknowledge that this feature is provided as-is,
-  may change without notice, and is not covered by production SLAs.
-================================================================================
-`;
 
 let spinner;
 
@@ -68,6 +52,10 @@ const ADC_CONFIG_KEY_MAP = {
 
 let _adcConfigCache; // undefined = not yet parsed, null = parsed but absent/invalid
 
+/**
+ * Parse and cache ADC credentials from the environment.
+ * @returns {object|null} Normalized configuration, or null if absent or invalid.
+ */
 function parseAdcConfigEnv() {
   if (_adcConfigCache !== undefined) return _adcConfigCache;
   const raw = process.env.AEM_EDGE_FUNCTIONS_ADC_CONFIG;
@@ -94,10 +82,14 @@ function parseAdcConfigEnv() {
 const BOOLEAN_CONFIGS = new Set([
   'edgefunctions_edge_delivery',
   'cloudmanager_edge_delivery',
-  'edgefunctions_adc_configured',
-  'edgefunctions_beta_agreed'
+  'edgefunctions_adc_configured'
 ]);
 
+/**
+ * Normalize supported boolean configuration values.
+ * @param {unknown} value Raw configuration value.
+ * @returns {boolean|undefined} Parsed boolean, or undefined for unsupported values.
+ */
 function parseBool(value) {
   if (value === undefined || value === null) return undefined;
   if (typeof value === 'boolean') return value;
@@ -107,7 +99,6 @@ function parseBool(value) {
 }
 
 class BaseCommand extends Command {
-  CONFIG_BETA_AGREED = 'edgefunctions_beta_agreed';
   CONFIG_ORG = 'cloudmanager_orgid';
   CONFIG_PROGRAM = 'cloudmanager_programid';
   CONFIG_ENVIRONMENT = 'cloudmanager_environmentid';
@@ -130,6 +121,8 @@ class BaseCommand extends Command {
    *
    * Returns a normalized object: { format, orgId, projectId, workspaceId, clientId, clientSecret, scopes }
    * projectId and workspaceId are null in the credentials-only format.
+   * @param {unknown} json Parsed ADC project or credentials JSON.
+   * @returns {object|null} Normalized credentials, or null for an unsupported format.
    */
   static parseAdcConfigJson(json) {
     if (!json || typeof json !== 'object') return null;
@@ -196,10 +189,17 @@ class BaseCommand extends Command {
   }
 
   async init() {
-    // Strip --accept-beta from argv before oclif parses, so it doesn't reject
-    // it as an unknown flag. We check it via process.argv in showBetaNotice().
-    this._acceptBeta = process.argv.includes('--accept-beta');
-    this.argv = this.argv.filter((a) => a !== '--accept-beta');
+    // --accept-beta is deprecated (AEM Edge Functions is now generally available) but still
+    // tolerated as a no-op so existing CI/CD does not break. Strip it before oclif parses so
+    // it is not rejected as an unknown flag, and print a one-line deprecation note.
+    if (process.argv.includes('--accept-beta')) {
+      this.argv = this.argv.filter((a) => a !== '--accept-beta');
+      console.warn(
+        chalk.dim(
+          'Note: --accept-beta is deprecated and no longer has any effect; you can remove it.'
+        )
+      );
+    }
 
     await super.init();
     const { args, flags } = await this.parse({
@@ -210,38 +210,12 @@ class BaseCommand extends Command {
     });
     this.flags = flags;
     this.args = args;
-
-    await this.showBetaNotice();
-  }
-
-  async showBetaNotice() {
-    // Always display the beta notice — even when already agreed or in batch/CI mode,
-    // so it remains visible in logs for retroactive review.
-    console.log(chalk.yellow(BETA_NOTICE));
-
-    // Skip the interactive prompt if already acknowledged.
-    // --accept-beta is stripped from argv in init() and stored in this._acceptBeta,
-    // so oclif doesn't reject it as an unknown flag on commands that don't define it.
-    const alreadyAgreed = parseBool(Config.get(this.CONFIG_BETA_AGREED));
-    if (alreadyAgreed || this._acceptBeta || this.flags?.batch) {
-      return;
-    }
-
-    const agreed = await confirm({
-      message: 'Do you acknowledge the public beta notice above and wish to continue?',
-      default: false
-    });
-
-    if (!agreed) {
-      this.error('You must acknowledge the public beta notice to use AEM Edge Functions.');
-    }
-
-    Config.set(this.CONFIG_BETA_AGREED, true, true);
   }
 
   /**
    * Get the IMS access token and API key from the configured context or the default one
    * This is used for Cloud Manager and ADC API calls (always uses IMS token)
+   * @returns {Promise<{accessToken: string, apiKey: string, local: boolean, data: object}>} IMS token and context.
    */
   async getTokenAndKey() {
     // Always use standard IMS token for Cloud Manager and ADC API calls
@@ -288,7 +262,7 @@ class BaseCommand extends Command {
 
   /**
    * Get access token using ADC OAuth Server-to-Server credentials
-   * @returns {Promise<Object|null>} Token and API key or null
+   * @returns {Promise<object | null>} Token and API key or null
    */
   async getAdcToken() {
     const clientId = this.getConfig(this.CONFIG_ADC_CLIENT_ID);
@@ -372,6 +346,7 @@ class BaseCommand extends Command {
    * Detect whether the CLI is configured for the Cloud Manager stage environment.
    * Checks AIO_CLI_ENV env var and aio config 'cli.env' / 'ims.contexts.cli.env'.
    * This does not require a token and works in batch mode.
+   * @returns {boolean} Whether a stage environment is configured.
    */
   isStageEnv() {
     if (process.env.AIO_CLI_ENV === 'stage') return true;
@@ -384,7 +359,7 @@ class BaseCommand extends Command {
 
   /**
    * Get the API base path for AEM Edge Functions (without the edge functions path suffix)
-   * @param {boolean} [stage=false] Whether to use the Cloud Manager stage domain suffix (-cmstg)
+   * @param {boolean} [stage] Whether to use the Cloud Manager stage domain suffix (-cmstg)
    * @returns {string|null} The computed base URL or null if configuration is incomplete
    */
   getApiBasePath(stage = false) {
@@ -411,7 +386,7 @@ class BaseCommand extends Command {
 
   /**
    * Get the API endpoint for AEM Edge Functions
-   * @param {boolean} [stage=false] Whether to use the Cloud Manager stage domain suffix (-cmstg)
+   * @param {boolean} [stage] Whether to use the Cloud Manager stage domain suffix (-cmstg)
    * @returns {string|null} The computed API endpoint or null if configuration is incomplete
    */
   getApiEndpoint(stage = false) {
@@ -425,7 +400,7 @@ class BaseCommand extends Command {
    * Get an access token and detect whether the environment is stage.
    * Tries (in order): AEM_EDGE_FUNCTIONS_TOKEN env var, ADC OAuth, IMS token.
    * Stage is detected from IMS context data when available, falling back to isStageEnv().
-   * @returns {Promise<{accessToken: string|null, isStage: boolean}>}
+   * @returns {Promise<{accessToken: string|undefined, isStage: boolean}>} Access token and detected stage environment.
    */
   async getAccessTokenAndStage() {
     let accessToken = process.env.AEM_EDGE_FUNCTIONS_TOKEN;

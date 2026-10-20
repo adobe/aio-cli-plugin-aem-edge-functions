@@ -12,8 +12,7 @@ The feature is currently beta, if you’re interested in participating or want t
   - 10.3.x or higher
   - 11.x or higher
 - Node.js version compatibility:
-  - 18.x -- 18.0.0 or higher.
-  - 20.x -- 20.11.0 or higher.
+  - 20.x -- 20.19.0 or higher.
   - 22.x -- 22.15.0 or higher.
   - 24.x -- 24.10.0 or higher.
   - Use with odd Node versions is _not_ recommended.
@@ -188,6 +187,46 @@ The following command will package your code for deployment to your edge functio
 aio aem edge-functions build
 ```
 
+### AOT compilation (`--aot`)
+
+Ahead-of-time (AOT) compilation (`--enable-aot`) can make an edge function's JavaScript run
+significantly faster at the cost of a larger package and a slower build. It is opt-in — most
+functions do not need it; it is most useful for CPU-heavy workloads.
+
+> **Experimental (plugin support).** AOT compilation is a stable `@fastly/js-compute`
+> capability, but this plugin's `--aot` / `--save-aot` flags are experimental. Treat AOT as a
+> deliberate optimization rather than a default build option: enable it only after confirming —
+> ideally by measuring — that the runtime speed-up outweighs the larger package for your workload.
+
+```
+aio aem edge-functions build --aot
+```
+
+`--aot` builds in a throwaway temporary directory, so your project (including `fastly.toml`) is
+left untouched; the resulting package is copied back to `pkg/`. Sources are still included,
+exactly like a normal build. This is the way to try AOT during development.
+
+Once you want AOT permanently (for example, in your CI/CD pipeline), add `--save-aot`. This writes
+the AOT build script into `fastly.toml` and builds in place — commit `fastly.toml` to keep AOT for
+all future builds, or use `git` to revert. No backup file is created.
+
+```
+aio aem edge-functions build --aot --save-aot
+```
+
+Notes:
+
+- If `fastly.toml` already contains an AOT build script, the build uses it as-is (nothing is
+  modified), whether or not `--aot` is passed. When building without `--aot`, a note is printed so
+  a leftover AOT setting is not a surprise.
+- AOT can substantially increase the package size; the compiled package must stay within the
+  Compute size limit (see [Package size limit](#package-size-limit)). `build` warns when a package
+  approaches or exceeds the limit. If AOT pushes you over, build without sources yourself, or keep
+  the standard build.
+- AOT requires the `@bytecodealliance/weval` version that `@fastly/js-compute` pins. If your
+  project overrides weval to a different version (for example, to clear an `npm audit` finding),
+  AOT can fail to compile — keep weval aligned with the version js-compute depends on.
+
 ## Deploy
 
 The following command will deploy your package to your edge function. You will need to pass your own function name `<function-name>`, where function-name is the name you gave to your service in the edge functions configuration file. The service name must be at most **30 characters** long, start with a lowercase letter, end with a lowercase letter or digit, and contain only lowercase letters, digits, and hyphens.
@@ -197,6 +236,20 @@ To be able to deploy, you need to have the "AEM Administrator" product profile f
 ```
 aio aem edge-functions deploy first-function
 ```
+
+### Package size limit
+
+Fastly rejects a compressed Compute package larger than **100 MB** (100,000,000 bytes). The plugin
+guards this limit on the package size (the compressed `.tar.gz`, not the uncompressed wasm):
+
+- `build` prints a warning when the produced package approaches (from ~90 MB) or exceeds the limit.
+- `deploy` warns when the package approaches the limit and proceeds. When the package is **over**
+  the limit, it asks for an explicit "send anyway" confirmation (defaulting to no) before uploading,
+  since Fastly will likely reject it. In non-interactive/CI runs, pass `--allow-oversize` to send it
+  anyway; without that flag an over-limit deploy stops.
+
+AOT roughly triples the wasm, so AOT builds are the most likely to approach the limit — enable AOT
+only when needed.
 
 ### Skip unchanged packages
 
@@ -296,6 +349,14 @@ To see the API endpoint used for log tailing (useful for troubleshooting connect
 
 ```
 aio aem edge-functions tail-logs first-function --debug
+```
+
+### Timestamps
+
+To prefix each log line with an RFC3339 UTC timestamp, use the `--timestamps` / `-t` flag. The timestamp comes from the log record metadata, so it applies to every line — both the logs your function emits and any lines emitted by the platform:
+
+```
+aio aem edge-functions tail-logs first-function --timestamps
 ```
 
 ## Purge cache

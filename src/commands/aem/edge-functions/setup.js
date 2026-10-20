@@ -59,12 +59,12 @@ class SetupCommand extends BaseCommand {
       Config.set(this.CONFIG_ORG, orgId, storeLocal);
 
       let selectedEnvironmentId = null;
-      let selectedProgramId = await this.getProgramId();
+      const selectedProgramId = await this.getProgramId();
       if (!selectedProgramId) {
         return;
       }
 
-      let edgeDelivery = await confirm({
+      const edgeDelivery = await confirm({
         message: 'Do you want to use an Edge Delivery site?',
         default: this.getConfig(this.CONFIG_EDGE_DELIVERY)
       });
@@ -918,7 +918,7 @@ class SetupCommand extends BaseCommand {
   /**
    * Read and parse the ADC config file from the --adc-config flag.
    * Supports both the full ADC project format and the credentials-only format.
-   * @returns {Object|null} Parsed ADC credentials or null if flag not provided
+   * @returns {object | null} Parsed ADC credentials or null if flag not provided
    */
   readAdcProjectFile() {
     const filePath = this.flags?.['adc-config'];

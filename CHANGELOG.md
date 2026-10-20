@@ -1,5 +1,52 @@
 # Changelog
 
+## [1.1.0] - 2026-10-15
+
+### Changed
+
+- Dropped Node.js 18 support. Requires Node.js 20.19+, 22.15+, or 24.10+ within those major versions.
+- Updated dependencies and resolved reported dependency security vulnerabilities.
+
+## [1.0.5] - 2026-09-25
+
+### Added
+
+- Package size guard for Fastly's 100 MB compressed-package limit: `build` warns when the produced package approaches (~90 MB) or exceeds the limit; `deploy` warns near the limit and, when the package is over it, asks for an explicit "send anyway" confirmation before uploading (`--allow-oversize` skips the prompt for non-interactive/CI use). AOT builds are the most likely to approach the limit.
+
+## [1.0.4] - 2026-09-23
+
+### Added
+
+- `build`: `--aot` flag for ahead-of-time compilation (`--enable-aot`) — faster runtime at the cost of a larger package and slower build; opt-in. Builds in a temporary directory, leaving the project (including `fastly.toml`) untouched, and still includes sources. Add `--save-aot` to persist the AOT build script into `fastly.toml` and build in place (commit it to carry AOT into future builds and CI/CD; `git` to revert). A committed AOT build script in `fastly.toml` is respected as-is; when building without `--aot`, a note is printed if AOT is configured.
+
+## [1.0.3] - 2026-09-01
+
+### Changed
+
+- `serve`: build with `--include-source` (matching `build`), so serving before a deploy no longer leaves a source-less package in `pkg/`
+
+## [1.0.2] - 2026-09-01
+
+### Added
+
+- `deploy`: warn when the package has no `src/` (built without `--include-source`), so deployed functions stay debuggable from their sources
+
+## [1.0.1] - 2026-08-27
+
+### Added
+
+- `tail-logs`: add `--timestamps` / `-t` flag to prefix each log line with an RFC3339 UTC timestamp
+
+## [1.0.0] - 2026-08-27
+
+### Removed
+
+- Public beta notice and interactive acknowledgement on every command — AEM Edge Functions is now generally available.
+
+### Deprecated
+
+- `--accept-beta` no longer has any effect (kept as a no-op for compatibility; will be removed later).
+
 ## [0.11.1] - 2026-06-26
 
 ### Changed
