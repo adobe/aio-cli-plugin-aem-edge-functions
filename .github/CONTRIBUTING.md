@@ -35,6 +35,16 @@ submitting a pull request!
 
 ## Releases
 
+**Temporary test target:** release PR preparation currently runs on
+`releaseautomation` and opens `automation/release` PRs against that branch,
+not `main`. Readiness checks use the same test branch. Push the workflow changes
+to `releaseautomation` to trigger preparation; select that branch for manual runs
+if the workflow is already registered on the default branch. The publisher
+remains scoped to `main` and dry-run only, so merging a test PR into
+`releaseautomation` does not trigger publication. Restore the preparation and
+readiness workflow branches/checkouts and `BASE_BRANCH` in the release script
+to `main` after testing. The production flow below assumes that restoration.
+
 Every normal merge to `main`, including documentation and CI changes, creates or
 refreshes one rolling PR from `automation/release`. Leave that PR open to collect
 changes; merging it is the maintainer's decision to publish. Do not bump the

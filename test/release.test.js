@@ -109,7 +109,7 @@ describe('release automation', function () {
       number: 42,
       body: `<!-- release-automation ${JSON.stringify(metadata)} -->`,
       head: { sha: candidate, ref: 'automation/release', repo: { full_name: REPO } },
-      base: { ref: 'main' },
+      base: { ref: 'releaseautomation' },
       labels: [{ name: 'release' }],
       draft: false
     };
@@ -138,7 +138,8 @@ describe('release automation', function () {
       const endpoint = args
         .find((arg) => arg.startsWith(`repos/${REPO}/`))
         .slice(`repos/${REPO}/`.length);
-      if (endpoint === 'git/ref/heads/main') return JSON.stringify({ object: { sha: mainSha } });
+      if (endpoint === 'git/ref/heads/releaseautomation')
+        return JSON.stringify({ object: { sha: mainSha } });
       if (endpoint.startsWith('releases?')) return JSON.stringify([published]);
       if (endpoint.startsWith('commits/')) {
         return JSON.stringify(
@@ -376,6 +377,17 @@ describe('release automation', function () {
     submitProposal();
     release.update();
     assert.equal(JSON.parse(fs.readFileSync('package.json')).version, '1.1.1');
+    for (const operation of ['list', 'create']) {
+      const call = calls.find(
+        (call) => call.command === 'gh' && call.args[0] === 'pr' && call.args[1] === operation
+      );
+      assert.equal(call.args[call.args.indexOf('--base') + 1], 'releaseautomation');
+    }
+    assert.ok(
+      calls.some((call) =>
+        call.args.some((arg) => arg.includes('pulls?state=open&base=releaseautomation&'))
+      )
+    );
     const firstHead = pr.head.sha;
     git('checkout', '-q', 'main');
     git('branch', '-D', 'automation/release');
@@ -546,7 +558,7 @@ describe('release automation', function () {
     await release.prepare();
     submitProposal();
     git('checkout', '-q', '--detach', baseSha);
-    assert.throws(() => release.update(), /Main moved/);
+    assert.throws(() => release.update(), /Base branch moved/);
     assert.equal(pr, null);
     assert.equal(JSON.parse(fs.readFileSync('package.json')).version, '1.1.0');
   });

@@ -13,6 +13,7 @@ const { createHash } = require('node:crypto');
 const REPOSITORY = 'adobe/aio-cli-plugin-aem-edge-functions';
 const PACKAGE = '@adobe/aio-cli-plugin-aem-edge-functions';
 const BRANCH = 'automation/release';
+const BASE_BRANCH = 'releaseautomation';
 const FILES = ['CHANGELOG.md', 'package-lock.json', 'package.json'];
 const BOOTSTRAP = { version: '1.1.0', sha: '3dd5055ce598bfbec8622abf0f4ebb55dadf9871' };
 const TYPES = ['Added', 'Changed', 'Fixed', 'Removed', 'Deprecated', 'Security'];
@@ -260,11 +261,11 @@ function metadata(pr) {
 function assertReleasePr(pr) {
   if (
     pr.head.ref !== BRANCH ||
-    pr.base.ref !== 'main' ||
+    pr.base.ref !== BASE_BRANCH ||
     pr.head.repo?.full_name !== REPOSITORY ||
     !pr.labels.some((label) => label.name === 'release')
   ) {
-    throw new Error('Not an automation-owned release PR targeting main.');
+    throw new Error(`Not an automation-owned release PR targeting ${BASE_BRANCH}.`);
   }
 }
 
@@ -273,7 +274,7 @@ function assertReleasePr(pr) {
  * @returns {object|null} Open PR, if present.
  */
 function openPr() {
-  const prs = api(`pulls?state=open&base=main&head=adobe:${BRANCH}&per_page=100`);
+  const prs = api(`pulls?state=open&base=${BASE_BRANCH}&head=adobe:${BRANCH}&per_page=100`);
   if (prs.length > 1) throw new Error('Multiple rolling release PRs exist.');
   return prs[0] || null;
 }
@@ -388,8 +389,8 @@ function output(key, value) {
  */
 async function prepare() {
   const head = git('rev-parse', 'HEAD');
-  if (head !== api('git/ref/heads/main').object.sha) {
-    throw new Error('Main moved during checkout. Rerun release preparation.');
+  if (head !== api(`git/ref/heads/${BASE_BRANCH}`).object.sha) {
+    throw new Error('Base branch moved during checkout. Rerun release preparation.');
   }
   const associated = api(`commits/${head}/pulls`);
   if (
@@ -447,7 +448,7 @@ async function prepare() {
     }
     if (existing && process.env.GITHUB_EVENT_NAME === 'push' && previous.baseSha === head) {
       output('skip', 'true');
-      console.log('The rolling release PR already covers this main snapshot.');
+      console.log('The rolling release PR already covers this base branch snapshot.');
       return;
     }
     if (
@@ -459,7 +460,7 @@ async function prepare() {
       Object.assign(override, previous.override);
     } else if (previous.baseSha !== head && previous.override?.notes && !override.notes) {
       throw new Error(
-        'Curated notes cover an older main snapshot. Dispatch again with updated notes; existing notes are preserved.'
+        'Curated notes cover an older base branch snapshot. Dispatch again with updated notes; existing notes are preserved.'
       );
     }
   }
@@ -474,7 +475,7 @@ async function prepare() {
       '--state',
       'merged',
       '--base',
-      'main',
+      BASE_BRANCH,
       '--limit',
       '1000',
       '--json',
@@ -586,9 +587,11 @@ function update() {
   }
   if (
     git('rev-parse', 'HEAD') !== context.head ||
-    api('git/ref/heads/main').object.sha !== context.head
+    api(`git/ref/heads/${BASE_BRANCH}`).object.sha !== context.head
   ) {
-    throw new Error('Main moved while Copilot was preparing the release. Rerun preparation.');
+    throw new Error(
+      'Base branch moved while Copilot was preparing the release. Rerun preparation.'
+    );
   }
   const current = openPr();
   if ((current?.head.sha || null) !== (context.existing?.head.sha || null)) {
@@ -653,7 +656,7 @@ function update() {
       '--repo',
       REPOSITORY,
       '--base',
-      'main',
+      BASE_BRANCH,
       '--head',
       BRANCH,
       '--title',
@@ -696,7 +699,7 @@ function validateTrees(data, allowBlocked = false) {
   }
   if (git('rev-parse', `${data.headSha}^`) !== data.baseSha) {
     throw new Error(
-      'Release branch must contain exactly one commit on its recorded main snapshot.'
+      'Release branch must contain exactly one commit on its recorded base branch snapshot.'
     );
   }
   const files = git('diff', '--name-only', data.baseSha, data.headSha).split('\n').sort();
@@ -742,16 +745,21 @@ async function check() {
       assertReleasePr(pr);
       const data = metadata(pr);
       git('fetch', '--no-tags', 'origin', data.headSha, data.baseSha);
-      if (pr.head.sha !== data.headSha || api('git/ref/heads/main').object.sha !== data.baseSha) {
-        throw new Error('Release PR is stale. Refresh it against current main before merging.');
+      if (
+        pr.head.sha !== data.headSha ||
+        api(`git/ref/heads/${BASE_BRANCH}`).object.sha !== data.baseSha
+      ) {
+        throw new Error(
+          'Release PR is stale. Refresh it against the current base branch before merging.'
+        );
       }
       const base = await baseline();
       if (base.sha !== data.baseline.sha || base.version !== data.baseline.version) {
         throw new Error('A newer release exists. Refresh this PR.');
       }
       validateTrees(data);
-      if (api('git/ref/heads/main').object.sha !== data.baseSha) {
-        throw new Error('Main moved during validation. Refresh the release PR.');
+      if (api(`git/ref/heads/${BASE_BRANCH}`).object.sha !== data.baseSha) {
+        throw new Error('Base branch moved during validation. Refresh the release PR.');
       }
     }
   } catch (error) {
@@ -764,7 +772,9 @@ async function check() {
     conclusion: failure ? 'failure' : 'success',
     output: {
       title: failure ? 'Release is not ready' : 'Release is ready',
-      summary: failure ? failure.message : 'Version, changelog, baseline, and current main match.'
+      summary: failure
+        ? failure.message
+        : 'Version, changelog, baseline, and current base branch match.'
     }
   };
   run('gh', ['api', '--method', 'POST', `repos/${REPOSITORY}/check-runs`, '--input', '-'], {
@@ -804,7 +814,7 @@ function mergedRelease(number = process.env.RELEASE_PR) {
     git('rev-parse', `${sha}^{tree}`) !== git('rev-parse', `${data.headSha}^{tree}`)
   ) {
     throw new Error(
-      'Merged release differs from the approved snapshot or was merged on stale main.'
+      'Merged release differs from the approved snapshot or was merged on a stale base branch.'
     );
   }
   return { pr: String(pr.number), sha, version, tag: `v${version}`, notes: data.notes };
