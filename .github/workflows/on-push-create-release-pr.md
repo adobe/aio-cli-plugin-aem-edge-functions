@@ -4,11 +4,11 @@ description: Propose a release from accumulated changes, then deterministically 
 
 on:
   push:
-    branches: [releaseautomation]
+    branches: [main]
   workflow_dispatch:
     inputs:
       bump:
-        description: Override the proposed bump for this releaseautomation snapshot
+        description: Override the proposed bump for this main snapshot
         type: choice
         options: [auto, patch, minor, major]
         default: auto
@@ -20,7 +20,7 @@ on:
         type: boolean
         default: false
 
-if: github.repository == 'adobe/aio-cli-plugin-aem-edge-functions' && github.ref == 'refs/heads/releaseautomation'
+if: github.repository == 'adobe/aio-cli-plugin-aem-edge-functions' && github.ref == 'refs/heads/main'
 
 permissions:
   contents: read
@@ -59,7 +59,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: releaseautomation
+          ref: main
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v7
@@ -141,7 +141,7 @@ safe-outputs:
       steps:
         - uses: actions/checkout@v7
           with:
-            ref: releaseautomation
+            ref: main
             fetch-depth: 0
             persist-credentials: false
         - uses: actions/setup-node@v7

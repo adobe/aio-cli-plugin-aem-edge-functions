@@ -10,8 +10,9 @@ on:
         type: string
 
 permissions:
-  contents: read
+  contents: write
   pull-requests: read
+  id-token: write
 
 concurrency:
   group: release-automation
@@ -47,6 +48,6 @@ jobs:
         run: npx eslint .github/scripts/release.js
       - if: steps.release.outputs.skip != 'true'
         run: npm test
-      - name: Validate and pack the release without publishing (dry run)
+      - name: Publish the release to GitHub and npm
         if: steps.release.outputs.skip != 'true'
-        run: node .github/scripts/release.js publish --dry-run
+        run: node .github/scripts/release.js publish

@@ -109,7 +109,7 @@ describe('release automation', function () {
       number: 42,
       body: `<!-- release-automation ${JSON.stringify(metadata)} -->`,
       head: { sha: candidate, ref: 'automation/release', repo: { full_name: REPO } },
-      base: { ref: 'releaseautomation' },
+      base: { ref: 'main' },
       labels: [{ name: 'release' }],
       draft: false
     };
@@ -138,8 +138,7 @@ describe('release automation', function () {
       const endpoint = args
         .find((arg) => arg.startsWith(`repos/${REPO}/`))
         .slice(`repos/${REPO}/`.length);
-      if (endpoint === 'git/ref/heads/releaseautomation')
-        return JSON.stringify({ object: { sha: mainSha } });
+      if (endpoint === 'git/ref/heads/main') return JSON.stringify({ object: { sha: mainSha } });
       if (endpoint.startsWith('releases?')) return JSON.stringify([published]);
       if (endpoint.startsWith('commits/')) {
         return JSON.stringify(
@@ -381,12 +380,10 @@ describe('release automation', function () {
       const call = calls.find(
         (call) => call.command === 'gh' && call.args[0] === 'pr' && call.args[1] === operation
       );
-      assert.equal(call.args[call.args.indexOf('--base') + 1], 'releaseautomation');
+      assert.equal(call.args[call.args.indexOf('--base') + 1], 'main');
     }
     assert.ok(
-      calls.some((call) =>
-        call.args.some((arg) => arg.includes('pulls?state=open&base=releaseautomation&'))
-      )
+      calls.some((call) => call.args.some((arg) => arg.includes('pulls?state=open&base=main&')))
     );
     const firstHead = pr.head.sha;
     git('checkout', '-q', 'main');

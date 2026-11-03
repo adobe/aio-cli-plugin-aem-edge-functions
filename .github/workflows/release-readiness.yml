@@ -2,9 +2,9 @@ name: Release readiness
 
 on:
   push:
-    branches: [releaseautomation]
+    branches: [main]
   pull_request_target:
-    branches: [releaseautomation]
+    branches: [main]
     types: [opened, synchronize, reopened, edited, labeled, unlabeled, ready_for_review]
   workflow_dispatch:
 
@@ -21,13 +21,13 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: releaseautomation
+          ref: main
           fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
-      - name: Check the release PR against current releaseautomation
+      - name: Check the release PR against current main
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_PR: ${{ github.event.pull_request.number }}

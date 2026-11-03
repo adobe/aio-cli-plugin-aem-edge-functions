@@ -35,16 +35,6 @@ submitting a pull request!
 
 ## Releases
 
-**Temporary test target:** release PR preparation currently runs on
-`releaseautomation` and opens `automation/release` PRs against that branch,
-not `main`. Readiness checks use the same test branch. Push the workflow changes
-to `releaseautomation` to trigger preparation; select that branch for manual runs
-if the workflow is already registered on the default branch. The publisher
-remains scoped to `main` and dry-run only, so merging a test PR into
-`releaseautomation` does not trigger publication. Restore the preparation and
-readiness workflow branches/checkouts and `BASE_BRANCH` in the release script
-to `main` after testing. The production flow below assumes that restoration.
-
 Every normal merge to `main`, including documentation and CI changes, creates or
 refreshes one rolling PR from `automation/release`. Leave that PR open to collect
 changes; merging it is the maintainer's decision to publish. Do not bump the
@@ -169,29 +159,18 @@ recompile before committing the production lock file.
 
 ### Publication and recovery
 
-**Publication is currently dry-run only.** Release PR creation and refresh remain
-enabled. The publish workflow calls `node .github/scripts/release.js publish --dry-run`
-with read-only repository permissions and no OIDC permission. After a release PR
-is merged, it validates the approved commit, packs the immutable source locally,
-and checks existing tags, assets, and npm versions for conflicts. It does not
-create or push tags, create/finalize GitHub Releases, upload release assets, or
-publish npm packages. The logs explicitly identify the run as a dry run.
-
-A dry run does not advance the published baseline. After merging a test release
-PR, preparation of the next release will remain blocked by its unpublished
-version. To publish that same approved release later, remove `--dry-run`, restore
-`contents: write` and `id-token: write` in the publish workflow, then manually
-dispatch it with the merged PR number. Do not merge test release PRs if you want
-to continue collecting changes without advancing the version on `main`.
-
-The following describes publication once dry-run mode is deliberately disabled:
-
 Merging the labeled release PR triggers `on-push-publish-to-npm.yml`. It verifies
 the exact approved snapshot and checks out the merge SHA, not the latest main.
 After installation, lint, and tests, it packs an archive of that commit, creates
 the immutable `vX.Y.Z` tag and a draft GitHub Release, attaches the npm tarball,
 publishes that same tarball to npm, and finally makes the GitHub Release public.
 New normal merges do not publish merely because `package.json` changed.
+
+For publication-only testing, invoke `node .github/scripts/release.js publish --dry-run`
+instead. It validates and packs the release but skips all tag, GitHub Release,
+asset, and npm writes, logging each skipped operation. A dry run does not advance
+the published baseline, so a merged but unpublished release blocks preparation
+of the next version until publication is completed.
 
 If publication fails, fix the external cause and rerun the failed job, or run
 **on-push-publish-to-npm > Run workflow** on `main` with the merged release PR
