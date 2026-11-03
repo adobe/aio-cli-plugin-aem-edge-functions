@@ -110,6 +110,7 @@ pre-agent-steps:
       path: /tmp/gh-aw/release-evidence
 
 safe-outputs:
+  report-failure-as-issue: false
   report-failed-jobs: false
   missing-tool:
     create-issue: false
@@ -129,8 +130,9 @@ safe-outputs:
       runs-on: ubuntu-latest
       if: needs.agent.result == 'success' && needs.detection.result == 'success' && needs.detection.outputs.detection_success == 'true'
       permissions:
-        contents: read
-        pull-requests: read
+        contents: write
+        pull-requests: write
+        issues: write
       inputs:
         proposal:
           description: 'JSON object with bump (patch or minor), breaking (boolean), rationale, and changes (type and description entries).'
@@ -158,21 +160,10 @@ safe-outputs:
           env:
             RELEASE_WORKFLOW_INFO: ${{ runner.temp }}/release-workflow-info/aw_info.json
           run: node .github/scripts/release.js propose
-        - name: Create repository-scoped automation token
-          if: steps.proposal.outputs.staged == 'false'
-          id: app
-          uses: actions/create-github-app-token@v3
-          with:
-            app-id: ${{ vars.RELEASE_APP_ID }}
-            private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-            repositories: ${{ github.repository }}
-            permission-contents: write
-            permission-pull-requests: write
-            permission-issues: write
         - name: Create or refresh the rolling release PR
           if: steps.proposal.outputs.staged == 'false'
           env:
-            GH_TOKEN: ${{ steps.app.outputs.token }}
+            GH_TOKEN: ${{ github.token }}
             RELEASE_WORKFLOW_INFO: ${{ runner.temp }}/release-workflow-info/aw_info.json
           run: |
             gh auth setup-git

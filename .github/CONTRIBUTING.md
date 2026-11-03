@@ -68,12 +68,16 @@ are preserved.
 
 ### One-time repository configuration
 
-1. Install a GitHub App on this repository with **Contents: write**,
-   **Pull requests: write**, and **Issues: write** (for the release label).
-   Set Actions variable `RELEASE_APP_ID` and secret `RELEASE_APP_PRIVATE_KEY`.
-   Tokens are minted only in the deterministic proposal job, restricted to this
-   repository, and revoked at job completion. The App key and token are never
-   passed to the AI job. App-authored PR updates trigger ordinary CI automatically.
+1. Enable **Settings > Actions > General > Workflow permissions > Allow GitHub
+   Actions to create and approve pull requests**. Organization policy must allow
+   this setting. The deterministic proposal job uses `GITHUB_TOKEN` with
+   **Contents: write**, **Pull requests: write**, and **Issues: write** (for the
+   release label). The AI job retains read-only permissions. No GitHub App,
+   `RELEASE_APP_ID`, or `RELEASE_APP_PRIVATE_KEY` is required.
+   PR workflows triggered by this token may require a maintainer to select
+   **Approve workflows to run** on the release PR; other resulting events
+   generally do not trigger workflows. Run **Release readiness** manually after
+   each release PR creation or refresh, since it uses `pull_request_target`.
 2. Set Actions secret `COPILOT_GITHUB_TOKEN` to a fine-grained PAT owned by a
    user account, with **Account permissions > Copilot Requests: Read** and an
    active Copilot subscription. The workflow currently uses this standard
@@ -83,7 +87,8 @@ are preserved.
    If Adobe enables centralized Copilot billing for Actions, change
    `permissions.copilot-requests` from `none` to `write` in the workflow source
    and recompile. That mode uses the short-lived Actions token instead of the
-   PAT and bills the organization; it does not replace the PR-writing App.
+   PAT and bills the organization; PR writes still use the deterministic job's
+   separate `GITHUB_TOKEN`.
 3. Configure npm trusted publishing for this repository and the existing workflow
    filename **`on-push-publish-to-npm.yml`**. Publishing uses GitHub-hosted runners,
    Node 24, OIDC, and provenance; no long-lived npm token is required.
@@ -157,7 +162,7 @@ Copilot policy. Review compiler/runtime dependency updates before adopting them.
 For preview-only execution, set `safe-outputs.staged: true` in the source and
 recompile, or compile with `--staged`. The custom proposal job checks the
 activation job's immutable `info` artifact, including its staging and dry-run
-flags, before minting the App token or writing a PR. Missing or inconsistent run
+flags, before writing the release branch or PR. Missing or inconsistent run
 metadata fails closed. Preview runs still perform inference and validation, but
 do not update the release branch or PR. Restore the production configuration and
 recompile before committing the production lock file.
