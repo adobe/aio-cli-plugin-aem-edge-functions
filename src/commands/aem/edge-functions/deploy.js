@@ -227,7 +227,6 @@ class DeployCommand extends BaseCommand {
               "  - The environment's CDN configuration has an author-tier access/authentication rule\n" +
               '    (e.g. an IP allowlist) that blocks the deploy API path /adobe/experimental/compute* -\n' +
               '    exclude that path from the rule (like /systemready) and re-run the config pipeline.\n' +
-              'Use the request-id below to correlate in Splunk (sourcetype=cdn, rules: match=<rule-name>).\n' +
               'Run `aio aem edge-functions info --debug` for a full diagnosis.'
           )
         );

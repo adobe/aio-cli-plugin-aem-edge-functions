@@ -406,8 +406,7 @@ class InfoCommand extends BaseCommand {
                         '    - the requested scopes do not grant access to the Edge Functions API;\n' +
                         '    - the environment CDN config has an author-tier access/authentication rule\n' +
                         '      (e.g. an IP allowlist) blocking the deploy API path /adobe/experimental/compute*\n' +
-                        '      - check cdn.yaml and exclude that path (like /systemready).\n' +
-                        '  Use the Request ID below to correlate in Splunk (sourcetype=cdn, rules: match=<rule-name>).'
+                        '      - check cdn.yaml and exclude that path (like /systemready).'
                     )
                   );
                 } else if (response.status === 404) {
@@ -457,7 +456,6 @@ class InfoCommand extends BaseCommand {
     const scopes = this.getConfig(this.CONFIG_ADC_SCOPES);
 
     console.log(`API Status:             ${chalk.red('✗ ADC token retrieval failed')}`);
-    console.log(`Token Type:             ${chalk.cyan('ADC OAuth (Server-to-Server)')}`);
 
     // Local credential checks (secrets stay redacted).
     const scopeCount = scopes ? String(scopes).split(',').filter(Boolean).length : 0;
@@ -506,7 +504,10 @@ class InfoCommand extends BaseCommand {
     console.log(chalk.dim(curl));
     console.log(
       chalk.dim(
-        '\n  The output above contains no secrets and is safe to share when escalating.\n' +
+        "\n  It is pre-filled with this environment's client ID, scopes and IMS endpoint, so support can\n" +
+          '  reproduce the exact failing call for debugging without separately collecting those\n' +
+          '  customer-specific values (which otherwise makes it hard to reproduce). The output contains\n' +
+          '  no secrets and is safe to share when escalating.\n' +
           '  A 200 with an access_token means the credential is valid; invalid_client/invalid_scope\n' +
           '  points at the credential itself or its Developer Console / org entitlements.'
       )

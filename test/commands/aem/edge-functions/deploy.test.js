@@ -391,6 +391,10 @@ describe('DeployCommand', () => {
         output.includes('/adobe/experimental/compute*'),
         'should name the deploy API path to exclude'
       );
+      assert.ok(
+        /info --debug/i.test(output),
+        'should point to info --debug for the full diagnosis'
+      );
       assert.ok(/cdn/i.test(output), 'should mention the CDN configuration');
       assert.ok(
         command.error.calledWith(sinon.match(/request-id: trace-abc-123/)),
