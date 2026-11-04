@@ -267,7 +267,7 @@ class InfoCommand extends BaseCommand {
           `\nAPI Endpoint:           ${apiEndpoint ? chalk.cyan(apiEndpoint) : chalk.red('Not available (missing configuration)')}`
         );
 
-        if (this.getConfig(this.CONFIG_ADC_CONFIGURED)) {
+        if (this.isAdcConfigured()) {
           console.log(chalk.bold('\nADC Credentials:'));
           console.log(
             `  Client ID:            ${adcClientId ? chalk.green(adcClientId) : chalk.red('Not set')}`
@@ -291,7 +291,7 @@ class InfoCommand extends BaseCommand {
             let tokenType = 'environment variable';
 
             if (!accessToken) {
-              const adcConfigured = this.getConfig(this.CONFIG_ADC_CONFIGURED);
+              const adcConfigured = this.isAdcConfigured();
               if (adcConfigured) {
                 try {
                   const adcToken = await this.getAdcToken();
