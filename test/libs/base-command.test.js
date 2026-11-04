@@ -17,10 +17,10 @@ const BaseCommand = require('../../src/libs/base-command');
 /**
  * Build a bare BaseCommand instance (bypassing the oclif constructor) with just the
  * fields the ADC auth helpers rely on, plus an overridable fetch and config lookup.
+ * @param config
  */
 function makeCmd(config = {}) {
   const cmd = Object.create(BaseCommand.prototype);
-  cmd.IMS_TOKEN_ENDPOINT = 'https://ims-na1.adobelogin.com/ims/token/v3';
   cmd.CONFIG_ADC_CLIENT_ID = 'edgefunctions_adc_client_id';
   cmd.CONFIG_ADC_CLIENT_SECRET = 'edgefunctions_adc_client_secret';
   cmd.CONFIG_ADC_SCOPES = 'edgefunctions_adc_scopes';
@@ -28,7 +28,13 @@ function makeCmd(config = {}) {
   return cmd;
 }
 
-/** Fake fetch returning a JSON body. */
+/**
+ * Fake fetch returning a JSON body.
+ * @param root0
+ * @param root0.ok
+ * @param root0.status
+ * @param root0.body
+ */
 function jsonFetch({ ok = true, status = 200, body = {} }) {
   return async () => ({
     ok,
@@ -38,7 +44,13 @@ function jsonFetch({ ok = true, status = 200, body = {} }) {
   });
 }
 
-/** Fake fetch returning a raw (non-JSON) body. */
+/**
+ * Fake fetch returning a raw (non-JSON) body.
+ * @param root0
+ * @param root0.ok
+ * @param root0.status
+ * @param root0.text
+ */
 function rawFetch({ ok = false, status = 500, text = '' }) {
   return async () => ({
     ok,
@@ -256,5 +268,34 @@ describe('BaseCommand.isAdcConfigured', () => {
   it('returns false when nothing is configured', () => {
     stubConfig({});
     assert.strictEqual(command.isAdcConfigured(), false);
+  });
+});
+
+describe('BaseCommand.getImsTokenEndpoint', function () {
+  it('uses the prod IMS host by default', function () {
+    const cmd = makeCmd();
+    cmd.isStageEnv = () => false;
+    assert.strictEqual(cmd.getImsTokenEndpoint(), 'https://ims-na1.adobelogin.com/ims/token/v3');
+  });
+
+  it('uses the stage IMS host when the CLI env is stage', function () {
+    const cmd = makeCmd();
+    cmd.isStageEnv = () => true;
+    assert.strictEqual(
+      cmd.getImsTokenEndpoint(),
+      'https://ims-na1-stg1.adobelogin.com/ims/token/v3'
+    );
+  });
+
+  it('memoizes the resolved endpoint (isStageEnv consulted once)', function () {
+    const cmd = makeCmd();
+    let calls = 0;
+    cmd.isStageEnv = () => {
+      calls += 1;
+      return false;
+    };
+    cmd.getImsTokenEndpoint();
+    cmd.getImsTokenEndpoint();
+    assert.strictEqual(calls, 1);
   });
 });

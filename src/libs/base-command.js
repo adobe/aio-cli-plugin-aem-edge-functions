@@ -15,7 +15,7 @@
 const ora = require('ora-classic');
 const jwt = require('jsonwebtoken');
 const chalk = require('chalk').default;
-const { context, getToken } = require('@adobe/aio-lib-ims');
+const { context, getToken, Ims } = require('@adobe/aio-lib-ims');
 const { Command } = require('@oclif/core');
 const { ux } = require('@oclif/core');
 const Config = require('@adobe/aio-lib-core-config');
@@ -115,8 +115,20 @@ class BaseCommand extends Command {
   CONFIG_ADC_CLIENT_SECRET = 'edgefunctions_adc_client_secret';
   CONFIG_ADC_SCOPES = 'edgefunctions_adc_scopes';
 
-  // IMS token endpoint used for the OAuth Server-to-Server (client_credentials) exchange.
-  IMS_TOKEN_ENDPOINT = 'https://ims-na1.adobelogin.com/ims/token/v3';
+  /**
+   * IMS token endpoint for the OAuth Server-to-Server (client_credentials) exchange.
+   * The IMS host (prod vs. stage) is resolved via @adobe/aio-lib-ims's authoritative endpoint map,
+   * so it tracks the CLI stage/prod environment - consistent with the stage-aware API endpoint.
+   * Memoized: the lightweight `Ims` instance is created at most once per command.
+   * @returns {string} The IMS token endpoint URL
+   */
+  getImsTokenEndpoint() {
+    if (!this._imsTokenEndpoint) {
+      const host = new Ims(this.isStageEnv() ? 'stage' : 'prod').endpoint;
+      this._imsTokenEndpoint = `${host}/ims/token/v3`;
+    }
+    return this._imsTokenEndpoint;
+  }
 
   /**
    * Parse an ADC config JSON object, auto-detecting the format:
@@ -297,7 +309,7 @@ class BaseCommand extends Command {
    * object (and caches it on `this._lastAdcAuthError`) instead of silently returning
    * null, so callers and `info --debug` can report the real cause. The detail object
    * never contains secret material.
-   * @returns {Promise<Object>} Token and API key
+   * @returns {Promise<object>} Token and API key
    */
   async getAdcToken() {
     const clientId = this.getConfig(this.CONFIG_ADC_CLIENT_ID);
@@ -350,10 +362,11 @@ class BaseCommand extends Command {
   async exchangeOAuthForToken(clientId, clientSecret, scopes) {
     const scopeString = Array.isArray(scopes) ? scopes.join(',') : scopes || '';
     const fetch = this.getFetch();
+    const imsEndpoint = this.getImsTokenEndpoint();
 
     let response;
     try {
-      response = await fetch(this.IMS_TOKEN_ENDPOINT, {
+      response = await fetch(imsEndpoint, {
         method: 'POST',
         headers: {
           'User-Agent': this.getUserAgent(),
@@ -370,7 +383,7 @@ class BaseCommand extends Command {
       // Network / DNS / TLS / proxy failure before any HTTP response from IMS.
       throw this.makeAdcAuthError('Could not reach the IMS token endpoint', {
         kind: 'network',
-        imsEndpoint: this.IMS_TOKEN_ENDPOINT,
+        imsEndpoint,
         cause: error.message
       });
     }
@@ -388,7 +401,7 @@ class BaseCommand extends Command {
       }
       throw this.makeAdcAuthError('IMS rejected the client_credentials token request', {
         kind: 'ims',
-        imsEndpoint: this.IMS_TOKEN_ENDPOINT,
+        imsEndpoint,
         status: response.status,
         error: imsError,
         errorDescription: imsErrorDescription,
@@ -402,7 +415,7 @@ class BaseCommand extends Command {
     } catch (error) {
       throw this.makeAdcAuthError('IMS returned a token response that could not be parsed', {
         kind: 'ims',
-        imsEndpoint: this.IMS_TOKEN_ENDPOINT,
+        imsEndpoint,
         status: response.status,
         cause: error.message
       });
@@ -411,7 +424,7 @@ class BaseCommand extends Command {
     if (!data.access_token) {
       throw this.makeAdcAuthError('IMS response did not contain an access_token', {
         kind: 'ims',
-        imsEndpoint: this.IMS_TOKEN_ENDPOINT,
+        imsEndpoint,
         status: response.status,
         raw: JSON.stringify(data).slice(0, 2000)
       });
@@ -425,7 +438,7 @@ class BaseCommand extends Command {
    * Build an Error annotated with a structured `.adcAuth` detail object and cache it
    * on `this._lastAdcAuthError`. The detail never contains secret material.
    * @param {string} message Short human-readable message
-   * @param {Object} detail Structured detail ({ kind, ... })
+   * @param {object} detail Structured detail ({ kind, ... })
    * @returns {Error}
    */
   makeAdcAuthError(message, detail) {
@@ -439,7 +452,7 @@ class BaseCommand extends Command {
 
   /**
    * One-line, secret-free summary of a structured ADC auth detail.
-   * @param {Object} detail
+   * @param {object} detail
    * @returns {string}
    */
   summarizeAdcAuthDetail(detail) {
@@ -461,7 +474,7 @@ class BaseCommand extends Command {
 
   /**
    * Targeted, actionable remediation hints for an ADC auth failure (no secrets).
-   * @param {Object} detail Structured ADC auth detail
+   * @param {object} detail Structured ADC auth detail
    * @returns {string[]} Hint lines
    */
   adcAuthHints(detail) {
@@ -524,7 +537,7 @@ class BaseCommand extends Command {
   buildAdcTokenCurl(clientId, scopes) {
     const scopeString = Array.isArray(scopes) ? scopes.join(',') : scopes || '';
     return [
-      `curl -s -X POST "${this.IMS_TOKEN_ENDPOINT}" \\`,
+      `curl -s -X POST "${this.getImsTokenEndpoint()}" \\`,
       '  -H "Content-Type: application/x-www-form-urlencoded" \\',
       '  -d "grant_type=client_credentials" \\',
       `  -d "client_id=${clientId || '<CLIENT_ID>'}" \\`,
