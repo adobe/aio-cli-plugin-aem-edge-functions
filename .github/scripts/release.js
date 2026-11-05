@@ -500,7 +500,7 @@ async function prepare() {
     pullRequests: prs.filter((pr) => commitIds.has(pr.mergeCommit?.oid)),
     changes
   };
-  if (Buffer.byteLength(JSON.stringify(evidence)) > 180_000) {
+  if (Buffer.byteLength(JSON.stringify(evidence)) > 240_000) {
     throw new Error(
       'Release evidence is too large for one proposal. Prepare a maintainer-reviewed release instead.'
     );
