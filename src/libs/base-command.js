@@ -189,6 +189,28 @@ class BaseCommand extends Command {
     return BOOLEAN_CONFIGS.has(key) ? parseBool(value) : value;
   }
 
+  /**
+   * Determine whether ADC OAuth Server-to-Server authentication should be used.
+   *
+   * Returns true when ADC is explicitly marked configured (via the
+   * AEM_EDGE_FUNCTIONS_ADC_CONFIGURED env var, the AEM_EDGE_FUNCTIONS_ADC_CONFIG JSON,
+   * or a persisted `setup`), OR when all three Server-to-Server credentials (client id,
+   * client secret, scopes) are present. The latter lets a CI/CD pipeline that supplies
+   * only the individual credential env vars use Server-to-Server auth without also
+   * having to set an explicit `AEM_EDGE_FUNCTIONS_ADC_CONFIGURED` flag.
+   * @returns {boolean} True if Server-to-Server auth should be attempted
+   */
+  isAdcConfigured() {
+    if (this.getConfig(this.CONFIG_ADC_CONFIGURED)) {
+      return true;
+    }
+    return Boolean(
+      this.getConfig(this.CONFIG_ADC_CLIENT_ID) &&
+      this.getConfig(this.CONFIG_ADC_CLIENT_SECRET) &&
+      this.getConfig(this.CONFIG_ADC_SCOPES)
+    );
+  }
+
   async init() {
     // --accept-beta is deprecated (AEM Edge Functions is now generally available) but still
     // tolerated as a no-op so existing CI/CD does not break. Strip it before oclif parses so
@@ -413,7 +435,7 @@ class BaseCommand extends Command {
     let isStage = this.isStageEnv();
 
     if (!accessToken) {
-      const adcConfigured = this.getConfig(this.CONFIG_ADC_CONFIGURED);
+      const adcConfigured = this.isAdcConfigured();
 
       if (adcConfigured) {
         try {

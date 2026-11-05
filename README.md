@@ -429,6 +429,8 @@ Alternatively, download the credentials JSON from Adobe Developer Console and ex
 AEM_EDGE_FUNCTIONS_ADC_CONFIG='{ ... }'
 ```
 
+When all three of `AEM_EDGE_FUNCTIONS_ADC_CLIENT_ID`, `AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET`, and `AEM_EDGE_FUNCTIONS_ADC_SCOPES` are present (or `AEM_EDGE_FUNCTIONS_ADC_CONFIG` is set), OAuth Server-to-Server authentication is used automatically - no interactive `aio login` / `setup` and no `cli` IMS context are required. To force it explicitly, you can also set `AEM_EDGE_FUNCTIONS_ADC_CONFIGURED=true`.
+
 ### 2. Verify configuration without login (optional)
 
 Optionally use the info command to output the configuration, use `--batch` to no trigger an interactive login:
@@ -453,6 +455,7 @@ jobs:
     env:
       AEM_EDGE_FUNCTIONS_PROGRAM_ID: ${{ secrets.AEM_EDGE_FUNCTIONS_PROGRAM_ID }}
       AEM_EDGE_FUNCTIONS_ENVIRONMENT_ID: ${{ secrets.AEM_EDGE_FUNCTIONS_ENVIRONMENT_ID }}
+      # The three ADC credentials below activate OAuth Server-to-Server auth automatically (no interactive login / cli context).
       AEM_EDGE_FUNCTIONS_ADC_CLIENT_ID: ${{ secrets.AEM_EDGE_FUNCTIONS_ADC_CLIENT_ID }}
       AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET: ${{ secrets.AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET }}
       AEM_EDGE_FUNCTIONS_ADC_SCOPES: ${{ secrets.AEM_EDGE_FUNCTIONS_ADC_SCOPES }}
@@ -483,6 +486,7 @@ jobs:
       AEM_EDGE_FUNCTIONS_PROGRAM_ID: ${{ secrets.AEM_EDGE_FUNCTIONS_PROGRAM_ID }}
       AEM_EDGE_FUNCTIONS_EDGE_DELIVERY: true
       AEM_EDGE_FUNCTIONS_SITE_DOMAIN: ${{ secrets.AEM_EDGE_FUNCTIONS_SITE_DOMAIN }}
+      # The three ADC credentials below activate OAuth Server-to-Server auth automatically (no interactive login / cli context).
       AEM_EDGE_FUNCTIONS_ADC_CLIENT_ID: ${{ secrets.AEM_EDGE_FUNCTIONS_ADC_CLIENT_ID }}
       AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET: ${{ secrets.AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET }}
       AEM_EDGE_FUNCTIONS_ADC_SCOPES: ${{ secrets.AEM_EDGE_FUNCTIONS_ADC_SCOPES }}
