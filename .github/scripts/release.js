@@ -1033,10 +1033,11 @@ async function publish({ dryRun = false } = {}) {
       throw new Error('A newer release exists. Refusing to publish an older version as latest.');
     }
     if (!dryRun) {
-      run('npm', ['publish', tarball, '--provenance', '--access', 'public', '--tag', 'latest'], {
-        stdio: 'inherit',
-        timeout: 300_000
-      });
+      execFileSync(
+        'npm',
+        ['publish', tarball, '--provenance', '--access', 'public', '--tag', 'latest'],
+        { stdio: 'inherit', timeout: 300_000 }
+      );
     } else {
       console.log(
         `Dry run: skipped publishing ${PACKAGE}@${release.version} to npm with tag latest.`

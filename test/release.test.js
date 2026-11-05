@@ -273,7 +273,7 @@ describe('release automation', function () {
           version: '1.1.1',
           dist: { integrity: release.integrity(args[1]) }
         };
-        return '';
+        return null;
       }
       return execFileSync(command, args, options);
     });
