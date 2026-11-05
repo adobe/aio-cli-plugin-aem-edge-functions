@@ -726,6 +726,8 @@ describe('release automation', function () {
   });
 
   it('publishes one immutable artifact and resumes after npm succeeded without republishing', async function () {
+    const workflowSha = mainSha;
+    process.env.GITHUB_SHA = workflowSha;
     preparePublish();
     write('src/index.js', 'module.exports = "uncommitted contamination";\n');
     await release.publish();
@@ -737,12 +739,47 @@ describe('release automation', function () {
       encoding: 'utf8'
     });
     assert.equal(source, 'module.exports = 1;\n');
-    assert.equal(npmPublish.options.env.GITHUB_SHA, candidate);
+    assert.notEqual(workflowSha, candidate);
+    assert.equal((npmPublish.options.env || process.env).GITHUB_SHA, workflowSha);
     published.find((item) => item.tag_name === 'v1.1.1').draft = true;
     await release.publish();
     assert.equal(
       calls.filter((call) => call.command === 'npm' && call.args[0] === 'publish').length,
       1
+    );
+    assert.equal(published.find((item) => item.tag_name === 'v1.1.1').draft, false);
+  });
+
+  it('uses the preserved publisher when retrying a release with an older publisher script', async function () {
+    fs.mkdirSync('.github/scripts', { recursive: true });
+    const oldPublisher = 'throw new Error("Old publisher must not run");\n';
+    write('.github/scripts/release.js', oldPublisher);
+    mainSha = commit('Include the old release tooling');
+    git('push', '-q', 'origin', 'main');
+    await release.prepare();
+    submitProposal();
+    release.update();
+    pr.merged = true;
+    pr.merged_at = '2026-10-20T16:00:00Z';
+    pr.merge_commit_sha = candidate;
+    git('checkout', '-q', 'main');
+    process.env.RELEASE_PR = '42';
+    process.env.GITHUB_SHA = mainSha;
+    const publisher = path.join(process.env.RUNNER_TEMP, 'release-publisher.js');
+    fs.copyFileSync(script, publisher);
+    const controller = require(publisher);
+    delete require.cache[publisher];
+    controller.select();
+    assert.equal(git('rev-parse', 'HEAD'), candidate);
+    assert.equal(fs.readFileSync('.github/scripts/release.js', 'utf8'), oldPublisher);
+    await controller.publish();
+    const npmPublish = calls.find((call) => call.command === 'npm' && call.args[0] === 'publish');
+    assert.equal((npmPublish.options.env || process.env).GITHUB_SHA, mainSha);
+    assert.equal(
+      execFileSync('tar', ['-xOf', npmPublish.args[1], 'package/src/index.js'], {
+        encoding: 'utf8'
+      }),
+      'module.exports = 1;\n'
     );
     assert.equal(published.find((item) => item.tag_name === 'v1.1.1').draft, false);
   });
