@@ -1,30 +1,53 @@
 name: on-push-publish-to-npm
 on:
   push:
-    branches:
-      - 'main'
-    paths:
-      - 'package.json'
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      pr:
+        description: Merged release PR number to resume
+        required: true
+        type: string
 
 permissions:
-  contents: read  # Required for OIDC
+  contents: write
+  pull-requests: read
   id-token: write
+
+concurrency:
+  group: release-automation
+  queue: max
+  cancel-in-progress: false
 
 jobs:
   publish:
-    if: github.repository == 'adobe/aio-cli-plugin-aem-edge-functions'
+    if: >-
+      github.repository == 'adobe/aio-cli-plugin-aem-edge-functions' &&
+      github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GH_TOKEN: ${{ github.token }}
+      RELEASE_PR: ${{ inputs.pr }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
-      - run: npm ci
-      - run: npm test
-      - name: Publish to NPM
-        uses: JS-DevTools/npm-publish@v4.1.5
-        id: publish
-      - name: Check if version changed
-        if: ${{ steps.publish.outputs.type }}
-        run: echo "Version changed!"
+      - name: Validate the merged release and select its exact commit
+        id: release
+        run: node .github/scripts/release.js select
+      - if: steps.release.outputs.skip != 'true'
+        run: npm ci
+      - if: steps.release.outputs.skip != 'true'
+        run: npx eslint .github/scripts/release.js
+      - if: steps.release.outputs.skip != 'true'
+        run: npm test
+      - name: Publish the release to GitHub and npm
+        if: steps.release.outputs.skip != 'true'
+        run: node .github/scripts/release.js publish
