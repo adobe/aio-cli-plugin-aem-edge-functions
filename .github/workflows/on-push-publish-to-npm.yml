@@ -39,9 +39,11 @@ jobs:
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+      - name: Preserve the publisher from the workflow commit
+        run: cp .github/scripts/release.js "$RUNNER_TEMP/release-publisher.js"
       - name: Validate the merged release and select its exact commit
         id: release
-        run: node .github/scripts/release.js select
+        run: node "$RUNNER_TEMP/release-publisher.js" select
       - if: steps.release.outputs.skip != 'true'
         run: npm ci
       - if: steps.release.outputs.skip != 'true'
@@ -50,4 +52,4 @@ jobs:
         run: npm test
       - name: Publish the release to GitHub and npm
         if: steps.release.outputs.skip != 'true'
-        run: node .github/scripts/release.js publish
+        run: node "$RUNNER_TEMP/release-publisher.js" publish

@@ -1035,9 +1035,7 @@ async function publish({ dryRun = false } = {}) {
     if (!dryRun) {
       run('npm', ['publish', tarball, '--provenance', '--access', 'public', '--tag', 'latest'], {
         stdio: 'inherit',
-        timeout: 300_000,
-        // npm reads the source digest from CI metadata, including on manual retries.
-        env: { ...process.env, GITHUB_SHA: release.sha }
+        timeout: 300_000
       });
     } else {
       console.log(

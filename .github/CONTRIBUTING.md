@@ -182,6 +182,12 @@ must match the tarball, and existing npm versions must have the same SHA-512
 integrity. A retry after npm succeeds only finalizes the draft release; it does
 not republish the version or overwrite conflicting artifacts.
 
+The workflow preserves its publisher script before selecting the release commit,
+so manual retries use the current workflow's release tooling, not an older copy
+in the release snapshot. npm provenance retains GitHub's original workflow SHA
+to match its signed OIDC identity; it is not overridden with the release SHA.
+The package still comes exclusively from the validated release commit.
+
 Preparation and publication share a non-canceling concurrency group with queued
 runs, so another preparation cannot replace a pending publication. If a newer
 merge arrives during preparation, the outdated proposal fails instead of
