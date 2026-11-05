@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.2.0] - 2026-11-05
+
+### Added
+
+- Include AIO CLI, plugin and Node.js versions in the User-Agent of direct API requests and Fastly CLI requests (#82).
+- Detailed, secret-free ADC/IMS authentication diagnosis in `info --debug`, and 401/403 authorization guidance with request-id in `deploy` and `info --debug` (#70).
+
+### Changed
+
+- Update dependencies: ``@fastly/cli`` 16.2.0, ``@oclif/core`` 4.14.0, chalk 5.6.2, open 11.0.4, sinon 22.1.0, ``@inquirer/prompts`` 8.7.4 (#83).
+- Add release automation for rolling release PRs and npm publishing, and update GitHub Actions to checkout/setup-node v7 (#87, #75, #76).
+
+### Fixed
+
+- Auto-detect ADC Server-to-Server auth when client id, secret and scopes env vars are set, without requiring AEM_EDGE_FUNCTIONS_ADC_CONFIGURED (#90).
+- Surface the real IMS token error instead of silently falling back to interactive auth; resolve the IMS host for prod/stage via aio-lib-ims (#70).
+- Clean up EDS site config when switching to AEM CS configuration in setup (#84).
+
 ## [1.1.0] - 2026-10-15
 
 ### Changed
