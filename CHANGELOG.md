@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.2.0] - 2026-11-05
+
+### Added
+
+- Send a shared User-Agent with AIO CLI, plugin and Node.js versions on Edge Functions, Cloud Manager, OAuth and Fastly CLI requests (#82).
+
+### Changed
+
+- Update dependencies including `@fastly/cli` 16.2.0, `@oclif/core` 4.14.0, chalk 5.6.2, open 11.0.4 and sinon 22.1.0, while preserving Node 20 support (#83).
+- Update GitHub Actions checkout and setup-node to v7 (#75, #76).
+- Add Copilot-assisted release automation that maintains a rolling release PR and publishes to npm (#87).
+
+### Fixed
+
+- Clean up EDS site config when switching to AEM CS configuration in the setup flow (#84).
+
 ## [1.1.0] - 2026-10-15
 
 ### Changed
