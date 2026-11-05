@@ -385,6 +385,25 @@ function output(key, value) {
 }
 
 /**
+ * Shorten evidence at a UTF-8 character boundary, marking omitted text.
+ * @param {string} text Source text.
+ * @param {number} maxBytes Maximum UTF-8 bytes.
+ * @returns {string} Bounded excerpt.
+ */
+function excerpt(text, maxBytes) {
+  if (Buffer.byteLength(text) <= maxBytes) return text;
+  const marker = '\n[... shortened for brevity]'.slice(0, maxBytes);
+  let result = '';
+  let bytes = Buffer.byteLength(marker);
+  for (const character of text) {
+    bytes += Buffer.byteLength(character);
+    if (bytes > maxBytes) break;
+    result += character;
+  }
+  return result + marker;
+}
+
+/**
  * Collect bounded evidence and snapshot-scoped overrides.
  */
 async function prepare() {
@@ -464,7 +483,10 @@ async function prepare() {
       );
     }
   }
-  const commits = git('log', '--format=%H %s%n%b', `${base.sha}..${head}`);
+  const commits = excerpt(
+    git('log', '--no-merges', '--format=%h %s', `${base.sha}..${head}`),
+    8_000
+  );
   const commitIds = new Set(git('rev-list', `${base.sha}..${head}`).split('\n'));
   const prs = JSON.parse(
     gh(
@@ -483,22 +505,36 @@ async function prepare() {
     )
   );
   if (prs.length === 1000) throw new Error('Release evidence exceeds the PR inventory limit.');
-  const changes = git(
+  const range = [base.sha, head, '--', '.'];
+  const files = git('diff', '--no-ext-diff', '--no-renames', '--numstat', ...range);
+  const patches = git(
     'diff',
     '--no-ext-diff',
     '--no-renames',
-    '--unified=3',
-    base.sha,
-    head,
-    '--',
-    '.',
+    '--unified=1',
+    ...range,
     ':!package-lock.json',
-    ':!.github/workflows/*.lock.yml'
-  );
+    ':!.github/workflows/*.lock.yml',
+    ':!test/**'
+  )
+    .split(/(?=^diff --git )/m)
+    .filter(Boolean);
+  const patchBudget = Math.min(6_000, Math.floor(40_000 / Math.max(1, patches.length)));
+  const includedPrs = prs.filter((pr) => commitIds.has(pr.mergeCommit?.oid));
+  const bodyBudget = Math.min(1_500, Math.floor(12_000 / Math.max(1, includedPrs.length)));
   const evidence = {
+    scope:
+      'Commit subjects, PR summaries, complete file numstat (added/deleted lines), and bounded diff excerpts. ' +
+      'Test, package-lock.json, and generated workflow patches are omitted; their files remain in numstat. ' +
+      'Shortened text is explicitly marked; omitted text is not evidence that no breaking changes exist.',
     commits,
-    pullRequests: prs.filter((pr) => commitIds.has(pr.mergeCommit?.oid)),
-    changes
+    pullRequests: includedPrs.map((pr) => ({
+      number: pr.number,
+      title: excerpt(pr.title, 240),
+      body: excerpt((pr.body || '').replace(/<!--[\s\S]*?-->/g, '').trim(), bodyBudget)
+    })),
+    files,
+    changes: patches.map((patch) => excerpt(patch, patchBudget)).join('\n')
   };
   if (Buffer.byteLength(JSON.stringify(evidence)) > 180_000) {
     throw new Error(
@@ -507,6 +543,10 @@ async function prepare() {
   }
   save('context.json', { head, baseline: base, existing, expectedBranchSha, override, evidence });
   save('evidence.json', { baseline: base.version, ...evidence });
+  console.log(
+    `Release evidence: ${Buffer.byteLength(JSON.stringify(evidence))} UTF-8 bytes; ` +
+      'commit subjects, bounded PR summaries and diff excerpts, and complete file numstat.'
+  );
   output('head', head);
   output('skip', 'false');
 }

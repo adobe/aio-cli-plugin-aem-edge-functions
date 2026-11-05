@@ -41,12 +41,15 @@ changes; merging it is the maintainer's decision to publish. Do not bump the
 package version or add a new version heading in ordinary feature PRs.
 
 GitHub Agentic Workflows, using its Copilot engine, proposes a patch or minor bump
-and changelog entries from all commits, merged PR descriptions, and the aggregate
-diff since the last successful release.
-The package lockfile and generated `*.lock.yml` workflow diffs are excluded from
-the prompt; dependency changes remain visible in `package.json` and workflow
-behavior in its Markdown source. Evidence exceeding 180,000 UTF-8 bytes or invalid
-AI output fails visibly rather than silently omitting changes. Docs/CI-only releases default to patch. Breaking
+and changelog entries from concise evidence since the last successful release:
+commit subjects (8 KB), PR descriptions (1.5 KB each, 12 KB total), and diff
+excerpts (6 KB per file, 40 KB total). Merge commit bodies and PR HTML comments
+are omitted, and shortened text is explicitly marked. Every changed file remains
+in a complete added/deleted-line summary, but test, package lockfile, and generated
+`*.lock.yml` workflow patches are omitted. Dependency changes remain visible in
+`package.json` and workflow behavior in its Markdown source. The final 180,000
+UTF-8 byte safety limit remains; invalid AI output fails visibly.
+Docs/CI-only releases default to patch. Breaking
 changes make the release PR a draft and fail its readiness check until explicitly
 approved by a maintainer.
 

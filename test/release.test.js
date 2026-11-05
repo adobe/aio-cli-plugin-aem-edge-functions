@@ -424,7 +424,9 @@ describe('release automation', function () {
       'baseline',
       'changes',
       'commits',
-      'pullRequests'
+      'files',
+      'pullRequests',
+      'scope'
     ]);
     assert.match(fs.readFileSync(process.env.GITHUB_OUTPUT, 'utf8'), new RegExp(`head=${mainSha}`));
     const before = calls.length;
@@ -455,7 +457,63 @@ describe('release automation', function () {
     assert.doesNotMatch(evidence.changes, /example\.lock\.yml|generated:/);
   });
 
-  it('enforces the evidence limit in UTF-8 bytes without truncation', async function () {
+  it('keeps large patches, commit bodies, tests, and PR descriptions concise', async function () {
+    for (let i = 0; i < 12; i++) {
+      write(`src/feature-${i}.js`, '// Feature change\n' + 'é'.repeat(10_000));
+    }
+    fs.mkdirSync('test');
+    write('test/large.test.js', 'test-noise'.repeat(30_000));
+    write('src/small.js', '// Important small change\n');
+    mainSha = commit('Add features\n\n' + 'commit-body-noise'.repeat(1_000));
+    git('push', '-q', 'origin', 'main');
+    childProcess.execFileSync
+      .withArgs(
+        'gh',
+        sinon.match((args) => args[0] === 'pr' && args[1] === 'list')
+      )
+      .returns(
+        JSON.stringify([
+          {
+            number: 70,
+            title: 'Add features',
+            body:
+              '<!-- metadata-noise -->\nUser-facing features\n' +
+              'PR-description-noise'.repeat(10_000),
+            mergeCommit: { oid: mainSha }
+          },
+          {
+            number: 1,
+            title: 'Already released',
+            body: 'Old changes',
+            mergeCommit: { oid: baseSha }
+          }
+        ])
+      );
+    await release.prepare();
+    const raw = fs.readFileSync(
+      path.join(process.env.RUNNER_TEMP, 'edge-functions-release', 'evidence.json'),
+      'utf8'
+    );
+    const evidence = JSON.parse(raw);
+    assert.ok(Buffer.byteLength(raw) < 65_000);
+    assert.ok(Buffer.byteLength(evidence.changes) < 41_000);
+    assert.match(evidence.changes, /shortened for brevity/);
+    assert.match(evidence.changes, /Important small change/);
+    assert.doesNotMatch(raw, /commit-body-noise|test-noise|metadata-noise|\uFFFD/);
+    assert.match(evidence.commits, /Add features/);
+    assert.match(evidence.files, /test\/large.test.js/);
+    for (let i = 0; i < 12; i++) {
+      assert.match(evidence.files, new RegExp(`src/feature-${i}\\.js`));
+      assert.match(evidence.changes, new RegExp(`src/feature-${i}\\.js`));
+    }
+    assert.equal(evidence.pullRequests.length, 1);
+    assert.equal(evidence.pullRequests[0].number, 70);
+    assert.match(evidence.pullRequests[0].body, /User-facing features/);
+    assert.ok(Buffer.byteLength(evidence.pullRequests[0].body) <= 1_500);
+    assert.equal(evidence.pullRequests[0].mergeCommit, undefined);
+  });
+
+  it('still rejects an oversized file inventory in UTF-8 bytes', async function () {
     advanceMain();
     await release.prepare();
     const contextFile = path.join(
@@ -464,22 +522,22 @@ describe('release automation', function () {
       'context.json'
     );
     const context = JSON.parse(fs.readFileSync(contextFile));
-    const overhead = Buffer.byteLength(JSON.stringify({ ...context.evidence, changes: '' }));
-    let changes = 'x'.repeat(180_000 - overhead);
+    const overhead = Buffer.byteLength(JSON.stringify({ ...context.evidence, files: '' }));
+    let files = 'x'.repeat(180_000 - overhead);
     childProcess.execFileSync
       .withArgs(
         'git',
-        sinon.match((args) => args[0] === 'diff')
+        sinon.match((args) => args[0] === 'diff' && args.includes('--numstat'))
       )
-      .callsFake(() => changes);
+      .callsFake(() => files);
     await release.prepare();
     assert.equal(
       Buffer.byteLength(JSON.stringify(JSON.parse(fs.readFileSync(contextFile)).evidence)),
       180_000
     );
-    changes += 'é';
+    files += 'é';
     await assert.rejects(release.prepare(), /evidence is too large/);
-    assert.equal(JSON.parse(fs.readFileSync(contextFile)).evidence.changes, changes.slice(0, -1));
+    assert.equal(JSON.parse(fs.readFileSync(contextFile)).evidence.files, files.slice(0, -1));
   });
 
   it('rejects missing, oversized, malformed, duplicate, or wrong safe outputs', function () {
