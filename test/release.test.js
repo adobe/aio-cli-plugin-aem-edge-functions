@@ -243,6 +243,7 @@ describe('release automation', function () {
       RUNNER_TEMP: path.join(temp, 'runner'),
       GH_AW_AGENT_OUTPUT: path.join(temp, 'runner', 'agent-output.json'),
       RELEASE_WORKFLOW_INFO: path.join(temp, 'runner', 'aw_info.json'),
+      GITHUB_EVENT_NAME: 'workflow_dispatch',
       GITHUB_RUN_ID: '12345',
       GITHUB_OUTPUT: path.join(temp, 'runner', 'output'),
       RELEASE_PR: '',
@@ -630,6 +631,23 @@ describe('release automation', function () {
       fs.readFileSync(path.join(process.env.RUNNER_TEMP, 'edge-functions-release', 'context.json'))
     );
     assert.match(context.evidence.changes, /Updated documentation/);
+  });
+
+  it('skips duplicate push preparation when the release PR already covers main', async function () {
+    process.env.GITHUB_EVENT_NAME = 'push';
+    advanceMain();
+    await release.prepare();
+    submitProposal();
+    release.update();
+    git('checkout', '-q', 'main');
+    const before = calls.length;
+    write(process.env.GITHUB_OUTPUT, '');
+    await release.prepare();
+    assert.match(fs.readFileSync(process.env.GITHUB_OUTPUT, 'utf8'), /^skip=true\n$/);
+    assert.equal(
+      calls.slice(before).some((call) => call.command === 'git' && call.args[0] === 'push'),
+      false
+    );
   });
 
   it('requires an explicit breaking-change decision and resets approval on new main changes', async function () {
