@@ -1,11 +1,5 @@
 # Changelog
 
-## [1.1.1] - 2026-11-04
-
-### Fixed
-
-- Server-to-Server (ADC) authentication is now auto-detected when all three credential env vars (`AEM_EDGE_FUNCTIONS_ADC_CLIENT_ID`, `AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET`, `AEM_EDGE_FUNCTIONS_ADC_SCOPES`) are present, without also requiring `AEM_EDGE_FUNCTIONS_ADC_CONFIGURED=true`. Previously, supplying only the three credentials in a CI/CD pipeline fell back to the interactive `cli` IMS context and failed with `Error: Context has no data: cli`. The explicit `AEM_EDGE_FUNCTIONS_ADC_CONFIGURED` flag and `AEM_EDGE_FUNCTIONS_ADC_CONFIG` JSON remain supported.
-
 ## [1.1.0] - 2026-10-15
 
 ### Changed
