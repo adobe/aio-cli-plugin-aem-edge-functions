@@ -8,12 +8,12 @@
       "allowedVersions": "^9.0.0"
     },
     {
-      "description": "Stay on Chalk 5 to preserve Node 20 support.",
+      "description": "Keep Chalk major upgrades separate from routine dependency updates.",
       "matchPackageNames": ["chalk"],
       "allowedVersions": "^5.0.0"
     },
     {
-      "description": "Stay on oclif core 4 to preserve Node 20 support.",
+      "description": "Keep oclif core major upgrades separate from routine dependency updates.",
       "matchPackageNames": ["@oclif/core"],
       "allowedVersions": "^4.0.0"
     }

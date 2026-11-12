@@ -5,7 +5,7 @@
   "author": "Adobe Inc.",
   "engines": {
     "npm": ">= 8.0.0",
-    "node": "^20.19.0 || >=22.15 <23 || >=24.10 <27"
+    "node": "^22.22.2 || ^24.15.0 || ^26.0.0"
   },
   "dependencies": {
     "@adobe/aio-lib-console": "5.8.0",
@@ -13,7 +13,7 @@
     "@adobe/aio-lib-core-networking": "5.1.0",
     "@adobe/aio-lib-ims": "8.1.2",
     "@fastly/cli": "16.2.0",
-    "@inquirer/prompts": "8.7.4",
+    "@inquirer/prompts": "8.8.0",
     "@oclif/core": "4.14.0",
     "chalk": "5.6.2",
     "jsonwebtoken": "9.0.3",
@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@adobe/eslint-config-aio-lib-config": "5.0.0",
-    "@inquirer/testing": "3.3.15",
+    "@inquirer/testing": "3.4.0",
     "eslint": "9.39.5",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-prettier": "5.5.7",

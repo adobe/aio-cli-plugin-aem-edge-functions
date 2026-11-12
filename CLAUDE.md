@@ -19,7 +19,7 @@ npm run lint-all                                      # Lint + auto-fix entire p
 npm run format                                        # Prettier format all files
 ```
 
-Requirements: Node.js 20.x (≥20.19.0), 22.x (≥22.15.0), or 24.x (≥24.10.0).
+Requirements: Node.js 22.x (≥22.22.2), 24.x (≥24.15.0), or 26.x (≥26.0.0).
 
 ## Architecture
 
