@@ -36,8 +36,14 @@ engine:
   id: copilot
   args: ['--no-custom-instructions']
 
+runtimes:
+  node:
+    version: '26'
+
 checkout: false
-network: {}
+network:
+  allowed: []
+  blocked: [node]
 timeout-minutes: 10
 
 tools:
@@ -64,7 +70,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@v7
         with:
-          node-version: '24'
+          node-version: '26'
       - name: Collect release evidence
         id: context
         env:
@@ -90,15 +96,19 @@ jobs:
   agent:
     needs: [collect]
     if: needs.collect.outputs.skip == 'false'
-  conclusion:
-    needs: [collect, publish_release_proposal]
-    pre-steps:
+  require_proposal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    needs: [agent, detection, collect, publish_release_proposal]
+    detection-gate: status-only
+    if: always() && needs.collect.result == 'success'
+    steps:
       - name: Require the release proposal to be processed
-        if: needs.collect.outputs.skip == 'false'
         env:
+          RELEASE_SKIP: ${{ needs.collect.outputs.skip }}
           PROPOSAL_RESULT: ${{ needs.publish_release_proposal.result }}
         run: |
-          if [ "$PROPOSAL_RESULT" != success ]; then
+          if [ "$RELEASE_SKIP" = false ] && [ "$PROPOSAL_RESULT" != success ]; then
             echo "::error::A validated release proposal was not processed. Inspect the agent, detection, and proposal jobs."
             exit 1
           fi
@@ -112,9 +122,9 @@ pre-agent-steps:
 safe-outputs:
   report-failure-as-issue: false
   report-failed-jobs: false
-  missing-tool:
+  report-missing-tool:
     create-issue: false
-  missing-data:
+  report-missing-data:
     create-issue: false
   report-incomplete:
     create-issue: false
@@ -146,7 +156,7 @@ safe-outputs:
             persist-credentials: false
         - uses: actions/setup-node@v7
           with:
-            node-version: '24'
+            node-version: '26'
         - uses: actions/download-artifact@v8
           with:
             name: release-context
