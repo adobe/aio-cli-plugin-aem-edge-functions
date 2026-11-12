@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.2.1] - 2026-11-12
+
+### Changed
+
+- Declare support for Node.js 26 in engines and use Node 26 in CI and release workflows (#86, #98).
+- Update dev dependency prettier to v3.10.1 (#97).
+- Update gh-aw to v1.2.2 for release workflows (#98).
+
+### Fixed
+
+- Preserve workflow identity for npm provenance and use the current publisher script when retrying release publishes (#96).
+- Isolate release tests from the workflow event (#95).
+
 ## [1.2.0] - 2026-11-05
 
 ### Added
