@@ -9,7 +9,7 @@
 
 ### Changed
 
-- Update dependencies: ``@fastly/cli`` 16.2.0, ``@oclif/core`` 4.14.0, chalk 5.6.2, open 11.0.4, sinon 22.1.0, ``@inquirer/prompts`` 8.7.4 (#83).
+- Update dependencies: `@fastly/cli` 16.2.0, `@oclif/core` 4.14.0, chalk 5.6.2, open 11.0.4, sinon 22.1.0, `@inquirer/prompts` 8.7.4 (#83).
 - Add release automation for rolling release PRs and npm publishing, and update GitHub Actions to checkout/setup-node v7 (#87, #75, #76).
 
 ### Fixed

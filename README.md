@@ -12,9 +12,9 @@ The feature is currently beta, if you’re interested in participating or want t
   - 10.3.x or higher
   - 11.x or higher
 - Node.js version compatibility:
-  - 20.x -- 20.19.0 or higher.
-  - 22.x -- 22.15.0 or higher.
-  - 24.x -- 24.10.0 or higher.
+  - 22.x -- 22.22.2 or higher.
+  - 24.x -- 24.15.0 or higher.
+  - 26.x -- 26.0.0 or higher.
   - Use with odd Node versions is _not_ recommended.
 
 # Installation
