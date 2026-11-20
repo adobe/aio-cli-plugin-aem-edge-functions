@@ -299,3 +299,61 @@ describe('BaseCommand.getImsTokenEndpoint', function () {
     assert.strictEqual(calls, 1);
   });
 });
+
+describe('BaseCommand env var normalization (Windows cmd quotes)', () => {
+  const saved = {};
+  const vars = ['AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET', 'AEM_EDGE_FUNCTIONS_API_ENDPOINT'];
+
+  beforeEach(() => {
+    for (const v of vars) {
+      saved[v] = process.env[v];
+    }
+  });
+
+  afterEach(() => {
+    for (const v of vars) {
+      if (saved[v] === undefined) delete process.env[v];
+      else process.env[v] = saved[v];
+    }
+  });
+
+  it('getConfig strips literal quotes and whitespace from an env var value', () => {
+    process.env.AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET = '"p8e-abc123" ';
+    const cmd = Object.create(BaseCommand.prototype);
+    assert.strictEqual(cmd.getConfig('edgefunctions_adc_client_secret'), 'p8e-abc123');
+  });
+
+  it('getConfig leaves an unquoted env var value unchanged', () => {
+    process.env.AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET = 'p8e-abc123';
+    const cmd = Object.create(BaseCommand.prototype);
+    assert.strictEqual(cmd.getConfig('edgefunctions_adc_client_secret'), 'p8e-abc123');
+  });
+
+  it('getApiBasePath normalizes a quoted AEM_EDGE_FUNCTIONS_API_ENDPOINT', () => {
+    process.env.AEM_EDGE_FUNCTIONS_API_ENDPOINT = '"https://example.test/adobe/cdn"';
+    const cmd = Object.create(BaseCommand.prototype);
+    assert.strictEqual(cmd.getApiBasePath(), 'https://example.test/adobe/cdn');
+  });
+
+  it('getAdcToken sends the unquoted secret to IMS when cmd stored set VAR="secret"', async () => {
+    process.env.AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET = '"p8e-abc123"';
+    const cmd = Object.create(BaseCommand.prototype);
+    cmd.CONFIG_ADC_CLIENT_ID = 'edgefunctions_adc_client_id';
+    cmd.CONFIG_ADC_CLIENT_SECRET = 'edgefunctions_adc_client_secret';
+    cmd.CONFIG_ADC_SCOPES = 'edgefunctions_adc_scopes';
+    const realGetConfig = BaseCommand.prototype.getConfig;
+    cmd.getConfig = (key) =>
+      key === 'edgefunctions_adc_client_secret'
+        ? realGetConfig.call(cmd, key)
+        : { edgefunctions_adc_client_id: 'cid', edgefunctions_adc_scopes: 'aem.cdn' }[key];
+    cmd.getImsTokenEndpoint = () => 'https://ims.example.test/ims/token/v3';
+    let sentBody;
+    cmd.getFetch = () => async (url, init) => {
+      sentBody = new URLSearchParams(init.body);
+      return { ok: true, status: 200, json: async () => ({ access_token: 'tok' }) };
+    };
+    const result = await cmd.getAdcToken();
+    assert.strictEqual(result.accessToken, 'tok');
+    assert.strictEqual(sentBody.get('client_secret'), 'p8e-abc123');
+  });
+});

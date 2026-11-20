@@ -19,6 +19,7 @@ const { confirm, input, password, search } = require('@inquirer/prompts');
 const chalk = require('chalk').default;
 const { Cloudmanager } = require('../../../libs/cloudmanager');
 const { DeveloperConsole } = require('../../../libs/developer-console');
+const { setEnvCommandLines } = require('../../../libs/env-vars');
 const { Flags } = require('@oclif/core');
 const fs = require('fs');
 const path = require('path');
@@ -161,11 +162,13 @@ class SetupCommand extends BaseCommand {
           console.log(
             chalk.green('✓ ADC configuration loaded from config file (no client secret in file).')
           );
-          console.log(
-            chalk.yellow(
-              `  Set the client secret via: export AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET="<secret>"`
-            )
-          );
+          console.log(chalk.yellow('  Set the client secret via:'));
+          for (const line of setEnvCommandLines(
+            'AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET',
+            '<secret>'
+          )) {
+            console.log(chalk.yellow(`    ${line}`));
+          }
         }
       } else if (adcProjectData && adcProjectData.format === 'credentials') {
         // Credentials-only format — client ID is known, no need to select project/workspace
@@ -179,11 +182,13 @@ class SetupCommand extends BaseCommand {
           console.log(chalk.green('✓ ADC configuration saved.'));
         } else {
           console.log(chalk.green('✓ ADC configuration saved (no client secret in file).'));
-          console.log(
-            chalk.yellow(
-              `  Set the client secret via: export AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET="<secret>"`
-            )
-          );
+          console.log(chalk.yellow('  Set the client secret via:'));
+          for (const line of setEnvCommandLines(
+            'AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET',
+            '<secret>'
+          )) {
+            console.log(chalk.yellow(`    ${line}`));
+          }
         }
       } else {
         const useADC = await confirm({
@@ -912,10 +917,18 @@ class SetupCommand extends BaseCommand {
       }
     } else if (storeChoice === 'env') {
       console.log(chalk.cyan('\nTo set the environment variable, run:'));
-      console.log(chalk.white(`  export AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET="${clientSecret}"`));
-      console.log(
-        chalk.cyan('\nOr add it to your shell profile (~/.zshrc, ~/.bashrc, etc.) to persist it.\n')
-      );
+      for (const line of setEnvCommandLines('AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET', clientSecret)) {
+        console.log(chalk.white(`  ${line}`));
+      }
+      if (process.platform !== 'win32') {
+        console.log(
+          chalk.cyan(
+            '\nOr add it to your shell profile (~/.zshrc, ~/.bashrc, etc.) to persist it.\n'
+          )
+        );
+      } else {
+        console.log('');
+      }
     } else {
       console.log('Client secret not saved. You will need to enter it each time.');
     }

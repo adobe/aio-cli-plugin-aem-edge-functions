@@ -112,11 +112,13 @@ Without a config file or `AEM_EDGE_FUNCTIONS_ADC_CONFIG`, the setup command will
 | `AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET` | ADC OAuth client secret                 |
 | `AEM_EDGE_FUNCTIONS_ADC_SCOPES`        | ADC OAuth scopes (comma-separated)      |
 
+On Windows, set these variables without quotes in cmd, because cmd stores the quotes as part of the value (`set AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET="..."` would send the quotes to IMS). Use `set AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET=<secret>` in cmd or `$env:AEM_EDGE_FUNCTIONS_ADC_CLIENT_SECRET='<secret>'` in PowerShell. As a safeguard, the plugin ignores surrounding whitespace and one pair of surrounding quotes in all `AEM_EDGE_FUNCTIONS_*` values, and `aio aem edge-functions info --debug` reports when it did so.
+
 ### Client Secret Storage
 
 When a client secret is available (either from a config file or entered manually), you will be asked how to store it:
 
-- **Environment variable** _(recommended)_ — prints the export command to add to your shell profile for persistence
+- **Environment variable** _(recommended)_ — prints the command to set it: `export` on macOS/Linux (add it to your shell profile for persistence), `set` (cmd) or `$env:` (PowerShell) on Windows
 - **Configuration file** — stores the secret as plain text in the aio config (not recommended for production)
 - **Don't store** — the secret is not persisted; you will need to provide it each time via the environment variable
 
