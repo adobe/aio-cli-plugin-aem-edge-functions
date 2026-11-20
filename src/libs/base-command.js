@@ -22,6 +22,7 @@ const Config = require('@adobe/aio-lib-core-config');
 const FastlyCli = require('./fastly-cli');
 const { createFetch } = require('@adobe/aio-lib-core-networking');
 const { getUserAgent } = require('./user-agent');
+const { readEnv } = require('./env-vars');
 
 let spinner;
 
@@ -59,7 +60,7 @@ let _adcConfigCache; // undefined = not yet parsed, null = parsed but absent/inv
  */
 function parseAdcConfigEnv() {
   if (_adcConfigCache !== undefined) return _adcConfigCache;
-  const raw = process.env.AEM_EDGE_FUNCTIONS_ADC_CONFIG;
+  const raw = readEnv('AEM_EDGE_FUNCTIONS_ADC_CONFIG');
   if (!raw) {
     _adcConfigCache = null;
     return null;
@@ -183,7 +184,9 @@ class BaseCommand extends Command {
 
   /**
    * Get a configuration value, checking environment variables before aio config.
-   * Environment variables follow the AEM_EF_* naming convention (see ENV_VAR_MAP).
+   * Environment variables follow the AEM_EF_* naming convention (see ENV_VAR_MAP). Their
+   * values are normalized (surrounding whitespace and one pair of surrounding quotes removed),
+   * so e.g. Windows cmd `set VAR="value"`, which stores the quotes literally, still works.
    * @param {string} key aio config key (e.g. this.CONFIG_ORG)
    * @returns {string|undefined} The configuration value
    */
@@ -192,7 +195,7 @@ class BaseCommand extends Command {
     let value;
     if (envVar && process.env[envVar] !== undefined) {
       // Individual env var takes highest precedence
-      value = process.env[envVar];
+      value = readEnv(envVar);
     } else if (ADC_CONFIG_KEY_MAP[key]) {
       // Fall back to AEM_EDGE_FUNCTIONS_ADC_CONFIG if available
       const adcConfig = parseAdcConfigEnv();
@@ -612,8 +615,9 @@ class BaseCommand extends Command {
    * @returns {string|null} The computed base URL or null if configuration is incomplete
    */
   getApiBasePath(stage = false) {
-    if (process.env.AEM_EDGE_FUNCTIONS_API_ENDPOINT) {
-      return process.env.AEM_EDGE_FUNCTIONS_API_ENDPOINT;
+    const apiEndpointOverride = readEnv('AEM_EDGE_FUNCTIONS_API_ENDPOINT');
+    if (apiEndpointOverride) {
+      return apiEndpointOverride;
     }
 
     const isEdgeDelivery =
@@ -642,7 +646,7 @@ class BaseCommand extends Command {
     const basePath = this.getApiBasePath(stage);
     if (!basePath) return null;
 
-    return basePath + (process.env.AEM_EDGE_FUNCTIONS_API_ENDPOINT_URL ?? '/edgeFunctions/fastly');
+    return basePath + (readEnv('AEM_EDGE_FUNCTIONS_API_ENDPOINT_URL') ?? '/edgeFunctions/fastly');
   }
 
   /**
@@ -652,7 +656,7 @@ class BaseCommand extends Command {
    * @returns {Promise<{accessToken: string|undefined, isStage: boolean}>} Access token and detected stage environment.
    */
   async getAccessTokenAndStage() {
-    let accessToken = process.env.AEM_EDGE_FUNCTIONS_TOKEN;
+    let accessToken = readEnv('AEM_EDGE_FUNCTIONS_TOKEN');
     let isStage = this.isStageEnv();
 
     if (!accessToken) {

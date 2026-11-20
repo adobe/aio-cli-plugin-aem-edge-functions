@@ -17,6 +17,7 @@ const chalk = require('chalk').default;
 const { Flags } = require('@oclif/core');
 const { Cloudmanager } = require('../../../libs/cloudmanager');
 const { DeveloperConsole } = require('../../../libs/developer-console');
+const { readEnv, describeEnvAdjustment } = require('../../../libs/env-vars');
 
 class InfoCommand extends BaseCommand {
   static description = 'Display current AEM Edge Functions configuration.';
@@ -256,8 +257,10 @@ class InfoCommand extends BaseCommand {
           for (const v of activeEnvVars) {
             const isSecret =
               v.includes('SECRET') || v.includes('TOKEN') || v === 'AEM_EDGE_FUNCTIONS_ADC_CONFIG';
-            const val = isSecret ? chalk.green('Set') : chalk.green(process.env[v]);
-            console.log(`  ${v}=${val}`);
+            const val = isSecret ? chalk.green('Set') : chalk.green(readEnv(v));
+            const adjustment = describeEnvAdjustment(v);
+            const note = adjustment ? chalk.yellow(` (${adjustment})`) : '';
+            console.log(`  ${v}=${val}${note}`);
           }
         } else {
           console.log(`  ${chalk.gray('None')}`);
@@ -287,7 +290,7 @@ class InfoCommand extends BaseCommand {
             const { createFetch } = require('@adobe/aio-lib-core-networking');
             const fetch = createFetch();
 
-            let accessToken = process.env.AEM_EDGE_FUNCTIONS_TOKEN;
+            let accessToken = readEnv('AEM_EDGE_FUNCTIONS_TOKEN');
             let tokenType = 'environment variable';
 
             if (!accessToken) {
