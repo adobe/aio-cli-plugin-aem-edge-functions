@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.3.0] - 2026-11-20
+
+### Added
+
+- Support Node.js 26 (#86).
+
+### Changed
+
+- `setup` now shows platform-appropriate commands (export, cmd set, PowerShell $env:) for setting the client secret, and `info --debug` reports when env values were normalized (#101).
+- Update ``@inquirer/prompts`` to 8.8.0, ``@inquirer/testing`` to 3.4.0, and prettier to 3.10.1 (#100, #97).
+- Update CI and release workflows to Node 26 and gh-aw v1.2.2 (#98).
+
+### Fixed
+
+- Ignore surrounding quotes and whitespace in AEM_EDGE_FUNCTIONS_* environment variables, fixing Windows cmd `set VAR="value"` sending literal quotes to IMS (#101).
+- Fix release publishing retries to preserve workflow identity for npm provenance and use the current publisher script (#96, #95).
+
+### Removed
+
+- Drop Node.js 20 support; require Node 22.22.2+, 24.15.0+, or 26.x (#100, #86).
+
 ## [1.2.0] - 2026-11-05
 
 ### Added
